@@ -7,28 +7,28 @@ from typing import Any, Callable
 
 import polars as pl
 
-from data_pebbles.client.api.api_endpoints_for_interacting_with_the_bronze_layer import (
+from data_pebbles.client.api.api_endpoints_for_interacting_with_the_bronze_layer import (  # noqa: E501
 	activate_version_bronze_source_id_versions_version_patch as _bronze_activate,
 )
-from data_pebbles.client.api.api_endpoints_for_interacting_with_the_bronze_layer import (
+from data_pebbles.client.api.api_endpoints_for_interacting_with_the_bronze_layer import (  # noqa: E501
 	create_source_bronze_post as _bronze_create,
 )
-from data_pebbles.client.api.api_endpoints_for_interacting_with_the_bronze_layer import (
+from data_pebbles.client.api.api_endpoints_for_interacting_with_the_bronze_layer import (  # noqa: E501
 	delete_source_bronze_source_id_delete as _bronze_delete,
 )
-from data_pebbles.client.api.api_endpoints_for_interacting_with_the_bronze_layer import (
+from data_pebbles.client.api.api_endpoints_for_interacting_with_the_bronze_layer import (  # noqa: E501
 	delete_version_bronze_source_id_versions_version_delete as _bronze_delete_version,
 )
-from data_pebbles.client.api.api_endpoints_for_interacting_with_the_bronze_layer import (
+from data_pebbles.client.api.api_endpoints_for_interacting_with_the_bronze_layer import (  # noqa: E501
 	get_source_bronze_source_id_get as _bronze_get,
 )
-from data_pebbles.client.api.api_endpoints_for_interacting_with_the_bronze_layer import (
+from data_pebbles.client.api.api_endpoints_for_interacting_with_the_bronze_layer import (  # noqa: E501
 	list_sources_bronze_get as _bronze_list,
 )
-from data_pebbles.client.api.api_endpoints_for_interacting_with_the_bronze_layer import (
+from data_pebbles.client.api.api_endpoints_for_interacting_with_the_bronze_layer import (  # noqa: E501
 	list_versions_bronze_source_id_versions_get as _bronze_list_versions,
 )
-from data_pebbles.client.api.api_endpoints_for_interacting_with_the_bronze_layer import (
+from data_pebbles.client.api.api_endpoints_for_interacting_with_the_bronze_layer import (  # noqa: E501
 	update_source_bronze_source_id_patch as _bronze_update,
 )
 from data_pebbles.client.api.api_endpoints_for_interacting_with_the_gold_layer import (
@@ -49,22 +49,22 @@ from data_pebbles.client.api.api_endpoints_for_interacting_with_the_gold_layer i
 from data_pebbles.client.api.api_endpoints_for_interacting_with_the_gold_layer import (
 	update_source_gold_source_id_patch as _gold_update,
 )
-from data_pebbles.client.api.api_endpoints_for_interacting_with_the_silver_layer import (
+from data_pebbles.client.api.api_endpoints_for_interacting_with_the_silver_layer import (  # noqa: E501
 	create_source_silver_post as _silver_create,
 )
-from data_pebbles.client.api.api_endpoints_for_interacting_with_the_silver_layer import (
+from data_pebbles.client.api.api_endpoints_for_interacting_with_the_silver_layer import (  # noqa: E501
 	delete_source_silver_source_id_delete as _silver_delete,
 )
-from data_pebbles.client.api.api_endpoints_for_interacting_with_the_silver_layer import (
+from data_pebbles.client.api.api_endpoints_for_interacting_with_the_silver_layer import (  # noqa: E501
 	get_source_silver_source_id_get as _silver_get,
 )
-from data_pebbles.client.api.api_endpoints_for_interacting_with_the_silver_layer import (
+from data_pebbles.client.api.api_endpoints_for_interacting_with_the_silver_layer import (  # noqa: E501
 	list_sources_silver_get as _silver_list,
 )
-from data_pebbles.client.api.api_endpoints_for_interacting_with_the_silver_layer import (
+from data_pebbles.client.api.api_endpoints_for_interacting_with_the_silver_layer import (  # noqa: E501
 	list_versions_silver_source_id_versions_get as _silver_list_versions,
 )
-from data_pebbles.client.api.api_endpoints_for_interacting_with_the_silver_layer import (
+from data_pebbles.client.api.api_endpoints_for_interacting_with_the_silver_layer import (  # noqa: E501
 	update_source_silver_source_id_patch as _silver_update,
 )
 from data_pebbles.client.client import AuthenticatedClient, Client
@@ -351,25 +351,25 @@ class DataPebbles:
 
 	Usage::
 
-	                dp = DataPebbles("https://api.example.com", token="...")
+			dp = DataPebbles("https://api.example.com", token="...")
 
-	                # Bronze: upload raw files
-	                dp.bronze.create_source("raw_sales")
-	                dp.bronze.upload(1, file_path="sales.csv")
+			# Bronze: upload raw files
+			dp.bronze.create_source("raw_sales")
+			dp.bronze.upload(1, file_path="sales.csv")
 
-	                # Silver / Gold: work with LazyFrames
-	                df = dp.silver.download(2)
-	                dp.gold.upload(3, df, from_source_ids=[2])
-
-
-	                # Decorators for lineage-tracked pipelines
-	                @dp.silver_transform(target=2, from_bronze=1)
-	                def clean(raw: bytes) -> pl.LazyFrame:
-	                    return pl.read_csv(raw).lazy()
+			# Silver / Gold: work with LazyFrames
+			df = dp.silver.download(2)
+			dp.gold.upload(3, df, from_source_ids=[2])
 
 
-	                clean()  # runs on latest bronze version
-	                clean(version=5)  # runs on a specific bronze version
+			# Decorators for lineage-tracked pipelines
+			@dp.silver_transform(target=2, from_bronze=1)
+			def clean(raw: bytes) -> pl.LazyFrame:
+				return pl.read_csv(raw).lazy()
+
+
+			clean()  # runs on latest bronze version
+			clean(version=5)  # runs on a specific bronze version
 	"""
 
 	def __init__(self, base_url: str, *, token: str | None = None) -> None:
@@ -429,13 +429,13 @@ class DataPebbles:
 
 		Usage::
 
-		                @dp.silver_transform(target=2, from_bronze=1)
-		                def clean(raw: bytes) -> pl.LazyFrame:
-		                    return pl.read_csv(raw).lazy().filter(pl.col("x") > 0)
+				@dp.silver_transform(target=2, from_bronze=1)
+				def clean(raw: bytes) -> pl.LazyFrame:
+					return pl.read_csv(raw).lazy().filter(pl.col("x") > 0)
 
 
-		                clean()  # uses latest bronze version
-		                clean(version=5)  # uses specific bronze version
+				clean()  # uses latest bronze version
+				clean(version=5)  # uses specific bronze version
 		"""
 
 		def decorator(
@@ -469,12 +469,17 @@ class DataPebbles:
 
 		Usage::
 
-		                @dp.gold_transform(target=3, from_silver=[1, 2])
-		                def aggregate(sources: dict[int, pl.LazyFrame]) -> pl.LazyFrame:
-		                    return pl.concat(sources.values()).group_by("category").agg(pl.sum("amount"))
+				@dp.gold_transform(target=3, from_silver=[1, 2])
+				def aggregate(
+					sources: dict[int, pl.LazyFrame],
+				) -> pl.LazyFrame:
+					return (
+						pl.concat(sources.values()).group_by("category")
+						.agg(pl.sum("amount"))
+					)
 
 
-		                aggregate()
+				aggregate()
 		"""
 
 		def decorator(

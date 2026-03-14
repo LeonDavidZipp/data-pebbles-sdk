@@ -15,5 +15,5 @@ select = ["E", "F", "I", "Q", "F401"]
 [format]
 quote-style = "double"
 indent-style = "tab"
-docstring-code-format = true
+docstring-code-format = false
 docstring-code-line-length = 88
