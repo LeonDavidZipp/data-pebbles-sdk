@@ -67,9 +67,27 @@ from data_pebbles.client.api.api_endpoints_for_interacting_with_the_silver_layer
 from data_pebbles.client.api.api_endpoints_for_interacting_with_the_silver_layer import (  # noqa: E501
 	update_resource_silver_resource_id_patch as _silver_update,
 )
+from data_pebbles.client.api.api_endpoints_for_managing_projects import (
+	create_project_projects_post as _project_create,
+)
+from data_pebbles.client.api.api_endpoints_for_managing_projects import (
+	delete_project_projects_project_id_delete as _project_delete,
+)
+from data_pebbles.client.api.api_endpoints_for_managing_projects import (
+	get_project_projects_project_id_get as _project_get,
+)
+from data_pebbles.client.api.api_endpoints_for_managing_projects import (
+	list_projects_projects_get as _project_list,
+)
+from data_pebbles.client.api.api_endpoints_for_managing_projects import (
+	update_project_projects_project_id_patch as _project_update,
+)
 from data_pebbles.client.client import AuthenticatedClient, Client
 from data_pebbles.client.models.create_gold_resource_request import (
 	CreateGoldResourceRequest,
+)
+from data_pebbles.client.models.create_project_request import (
+	CreateProjectRequest,
 )
 from data_pebbles.client.models.create_resource_request import CreateResourceRequest
 from data_pebbles.client.models.create_silver_resource_request import (
@@ -79,10 +97,14 @@ from data_pebbles.client.models.gold_lineage_response import GoldLineageResponse
 from data_pebbles.client.models.gold_metadata_response import GoldMetadataResponse
 from data_pebbles.client.models.http_validation_error import HTTPValidationError
 from data_pebbles.client.models.metadata_response import MetadataResponse
+from data_pebbles.client.models.project_response import ProjectResponse
 from data_pebbles.client.models.silver_lineage_response import SilverLineageResponse
 from data_pebbles.client.models.silver_metadata_response import SilverMetadataResponse
 from data_pebbles.client.models.update_gold_resource_request import (
 	UpdateGoldResourceRequest,
+)
+from data_pebbles.client.models.update_project_request import (
+	UpdateProjectRequest,
 )
 from data_pebbles.client.models.update_resource_request import UpdateResourceRequest
 from data_pebbles.client.models.update_silver_resource_request import (
@@ -131,9 +153,10 @@ class BronzeLayer:
 	def __init__(self, client: AuthenticatedClient | Client) -> None:
 		self._client = client
 
-	def create_resource(self, name: str) -> Any:
+	def create_resource(self, name: str, project_id: int) -> Any:
 		result = _bronze_create.sync(
-			client=self._client, body=CreateResourceRequest(name=name)
+			client=self._client,
+			body=CreateResourceRequest(name=name, project_id=project_id),
 		)
 		return _check_response(result)
 
@@ -233,9 +256,10 @@ class SilverLayer:
 	def __init__(self, client: AuthenticatedClient | Client) -> None:
 		self._client = client
 
-	def create_resource(self, name: str) -> Any:
+	def create_resource(self, name: str, project_id: int) -> Any:
 		result = _silver_create.sync(
-			client=self._client, body=CreateSilverResourceRequest(name=name)
+			client=self._client,
+			body=CreateSilverResourceRequest(name=name, project_id=project_id),
 		)
 		return _check_response(result)
 
@@ -313,9 +337,10 @@ class GoldLayer:
 	def __init__(self, client: AuthenticatedClient | Client) -> None:
 		self._client = client
 
-	def create_resource(self, name: str) -> Any:
+	def create_resource(self, name: str, project_id: int) -> Any:
 		result = _gold_create.sync(
-			client=self._client, body=CreateGoldResourceRequest(name=name)
+			client=self._client,
+			body=CreateGoldResourceRequest(name=name, project_id=project_id),
 		)
 		return _check_response(result)
 
@@ -387,6 +412,45 @@ class GoldLayer:
 		return max(v.delta_version for v in versions)
 
 
+class ProjectsLayer:
+	def __init__(self, client: AuthenticatedClient | Client) -> None:
+		self._client = client
+
+	def create_project(self, name: str, description: str | None = None) -> Any:
+		result = _project_create.sync(
+			client=self._client,
+			body=CreateProjectRequest(
+				name=name,
+				description=(description if description is not None else None),
+			),
+		)
+		return _check_response(result)
+
+	def list_projects(self) -> list[ProjectResponse]:
+		return _project_list.sync(client=self._client) or []
+
+	def get_project(self, project_id: int) -> ProjectResponse:
+		result = _project_get.sync(project_id=project_id, client=self._client)
+		return _check_response(result)
+
+	def update_project(
+		self, project_id: int, name: str | None = None, description: str | None = None
+	) -> Any:
+		result = _project_update.sync(
+			project_id=project_id,
+			client=self._client,
+			body=UpdateProjectRequest(
+				name=(name if name is not None else None),
+				description=(description if description is not None else None),
+			),
+		)
+		return _check_response(result)
+
+	def delete_project(self, project_id: int) -> Any:
+		result = _project_delete.sync(project_id=project_id, client=self._client)
+		return _check_response(result)
+
+
 class DataPebbles:
 	"""High-level SDK for the Data Pebbles platform.
 
@@ -395,7 +459,7 @@ class DataPebbles:
 			dp = DataPebbles("https://api.example.com", token="...")
 
 			# Bronze: upload raw files
-			dp.bronze.create_resource("raw_sales")
+			dp.bronze.create_resource("raw_sales", project_id=1)
 			dp.bronze.upload(1, file_path="sales.csv")
 
 			# Silver / Gold: work with LazyFrames
@@ -429,6 +493,9 @@ class DataPebbles:
 		self._silver = SilverLayer(self._client)
 		self._gold = GoldLayer(self._client)
 
+		# Projects (new backend feature)
+		self._projects = ProjectsLayer(self._client)
+
 	@property
 	def bronze(self) -> BronzeLayer:
 		return self._bronze
@@ -440,6 +507,10 @@ class DataPebbles:
 	@property
 	def gold(self) -> GoldLayer:
 		return self._gold
+
+	@property
+	def projects(self) -> ProjectsLayer:
+		return self._projects
 
 	def __enter__(self) -> DataPebbles:
 		self._client.__enter__()
@@ -458,6 +529,7 @@ class DataPebbles:
 		target_id: int,
 		from_bronze_id: int,
 		csv_separator: str = ",",
+		source_id: int | None = None,
 	) -> Callable[
 		[Callable[[pl.LazyFrame], pl.DataFrame | pl.LazyFrame]],
 		Callable[..., None],
@@ -514,7 +586,9 @@ class DataPebbles:
 				bronze_data = self.bronze.download(from_bronze_id, version=version_)
 				lf = _read_bronze_bytes(bronze_data, ext, csv_separator=csv_separator)
 				result = func(lf)
-				self.silver.upload(target_id, result, from_resource_id=from_bronze_id)
+				# Allow explicit override of the recorded source id (lineage)
+				record_from_id = source_id if source_id is not None else from_bronze_id
+				self.silver.upload(target_id, result, from_resource_id=record_from_id)
 
 			return wrapper
 
@@ -525,6 +599,7 @@ class DataPebbles:
 		*,
 		target_id: int,
 		from_silver_ids: list[int],
+		source_ids: list[int] | None = None,
 	) -> Callable[
 		[Callable[[dict[int, pl.LazyFrame]], pl.DataFrame | pl.LazyFrame]],
 		Callable[..., None],
@@ -569,7 +644,11 @@ class DataPebbles:
 					sid: self.silver.download(sid) for sid in from_silver_ids
 				}
 				result = func(silver_data)
-				self.gold.upload(target_id, result, from_resource_ids=from_silver_ids)
+				# Allow explicit override of the recorded source ids (lineage)
+				record_from_ids = (
+					source_ids if source_ids is not None else from_silver_ids
+				)
+				self.gold.upload(target_id, result, from_resource_ids=record_from_ids)
 
 			return wrapper
 
