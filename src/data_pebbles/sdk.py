@@ -8,86 +8,86 @@ from typing import Any, Callable
 import polars as pl
 
 from data_pebbles.client.api.api_endpoints_for_interacting_with_the_bronze_layer import (  # noqa: E501
-	activate_version_bronze_source_id_versions_version_patch as _bronze_activate,
+	activate_version_bronze_resource_id_versions_version_patch as _bronze_activate,
 )
 from data_pebbles.client.api.api_endpoints_for_interacting_with_the_bronze_layer import (  # noqa: E501
-	create_source_bronze_post as _bronze_create,
+	create_resource_bronze_post as _bronze_create,
 )
 from data_pebbles.client.api.api_endpoints_for_interacting_with_the_bronze_layer import (  # noqa: E501
-	delete_source_bronze_source_id_delete as _bronze_delete,
+	delete_resource_bronze_resource_id_delete as _bronze_delete,
 )
 from data_pebbles.client.api.api_endpoints_for_interacting_with_the_bronze_layer import (  # noqa: E501
-	delete_version_bronze_source_id_versions_version_delete as _bronze_delete_version,
+	delete_version_bronze_resource_id_versions_version_delete as _bronze_delete_version,
 )
 from data_pebbles.client.api.api_endpoints_for_interacting_with_the_bronze_layer import (  # noqa: E501
-	get_source_bronze_source_id_get as _bronze_get,
+	get_resource_bronze_resource_id_get as _bronze_get,
 )
 from data_pebbles.client.api.api_endpoints_for_interacting_with_the_bronze_layer import (  # noqa: E501
-	list_sources_bronze_get as _bronze_list,
+	list_resources_bronze_get as _bronze_list,
 )
 from data_pebbles.client.api.api_endpoints_for_interacting_with_the_bronze_layer import (  # noqa: E501
-	list_versions_bronze_source_id_versions_get as _bronze_list_versions,
+	list_versions_bronze_resource_id_versions_get as _bronze_list_versions,
 )
 from data_pebbles.client.api.api_endpoints_for_interacting_with_the_bronze_layer import (  # noqa: E501
-	update_source_bronze_source_id_patch as _bronze_update,
+	update_resource_bronze_resource_id_patch as _bronze_update,
 )
 from data_pebbles.client.api.api_endpoints_for_interacting_with_the_gold_layer import (
-	create_source_gold_post as _gold_create,
+	create_resource_gold_post as _gold_create,
 )
 from data_pebbles.client.api.api_endpoints_for_interacting_with_the_gold_layer import (
-	delete_source_gold_source_id_delete as _gold_delete,
+	delete_resource_gold_resource_id_delete as _gold_delete,
 )
 from data_pebbles.client.api.api_endpoints_for_interacting_with_the_gold_layer import (
-	get_source_gold_source_id_get as _gold_get,
+	get_resource_gold_resource_id_get as _gold_get,
 )
 from data_pebbles.client.api.api_endpoints_for_interacting_with_the_gold_layer import (
-	list_sources_gold_get as _gold_list,
+	list_resources_gold_get as _gold_list,
 )
 from data_pebbles.client.api.api_endpoints_for_interacting_with_the_gold_layer import (
-	list_versions_gold_source_id_versions_get as _gold_list_versions,
+	list_versions_gold_resource_id_versions_get as _gold_list_versions,
 )
 from data_pebbles.client.api.api_endpoints_for_interacting_with_the_gold_layer import (
-	update_source_gold_source_id_patch as _gold_update,
+	update_resource_gold_resource_id_patch as _gold_update,
 )
 from data_pebbles.client.api.api_endpoints_for_interacting_with_the_silver_layer import (  # noqa: E501
-	create_source_silver_post as _silver_create,
+	create_resource_silver_post as _silver_create,
 )
 from data_pebbles.client.api.api_endpoints_for_interacting_with_the_silver_layer import (  # noqa: E501
-	delete_source_silver_source_id_delete as _silver_delete,
+	delete_resource_silver_resource_id_delete as _silver_delete,
 )
 from data_pebbles.client.api.api_endpoints_for_interacting_with_the_silver_layer import (  # noqa: E501
-	get_source_silver_source_id_get as _silver_get,
+	get_resource_silver_resource_id_get as _silver_get,
 )
 from data_pebbles.client.api.api_endpoints_for_interacting_with_the_silver_layer import (  # noqa: E501
-	list_sources_silver_get as _silver_list,
+	list_resources_silver_get as _silver_list,
 )
 from data_pebbles.client.api.api_endpoints_for_interacting_with_the_silver_layer import (  # noqa: E501
-	list_versions_silver_source_id_versions_get as _silver_list_versions,
+	list_versions_silver_resource_id_versions_get as _silver_list_versions,
 )
 from data_pebbles.client.api.api_endpoints_for_interacting_with_the_silver_layer import (  # noqa: E501
-	update_source_silver_source_id_patch as _silver_update,
+	update_resource_silver_resource_id_patch as _silver_update,
 )
 from data_pebbles.client.client import AuthenticatedClient, Client
-from data_pebbles.client.models.create_gold_source_request import (
-	CreateGoldSourceRequest,
+from data_pebbles.client.models.create_gold_resource_request import (
+	CreateGoldResourceRequest,
 )
-from data_pebbles.client.models.create_silver_source_request import (
-	CreateSilverSourceRequest,
+from data_pebbles.client.models.create_resource_request import CreateResourceRequest
+from data_pebbles.client.models.create_silver_resource_request import (
+	CreateSilverResourceRequest,
 )
-from data_pebbles.client.models.create_source_request import CreateSourceRequest
 from data_pebbles.client.models.gold_lineage_response import GoldLineageResponse
 from data_pebbles.client.models.gold_metadata_response import GoldMetadataResponse
 from data_pebbles.client.models.http_validation_error import HTTPValidationError
 from data_pebbles.client.models.metadata_response import MetadataResponse
 from data_pebbles.client.models.silver_lineage_response import SilverLineageResponse
 from data_pebbles.client.models.silver_metadata_response import SilverMetadataResponse
-from data_pebbles.client.models.update_gold_source_request import (
-	UpdateGoldSourceRequest,
+from data_pebbles.client.models.update_gold_resource_request import (
+	UpdateGoldResourceRequest,
 )
-from data_pebbles.client.models.update_silver_source_request import (
-	UpdateSilverSourceRequest,
+from data_pebbles.client.models.update_resource_request import UpdateResourceRequest
+from data_pebbles.client.models.update_silver_resource_request import (
+	UpdateSilverResourceRequest,
 )
-from data_pebbles.client.models.update_source_request import UpdateSourceRequest
 from data_pebbles.client.models.version_response import VersionResponse
 
 ALLOWED_EXTENSIONS = {".csv", ".parquet", ".json", ".xlsx"}
@@ -131,44 +131,46 @@ class BronzeLayer:
 	def __init__(self, client: AuthenticatedClient | Client) -> None:
 		self._client = client
 
-	def create_source(self, name: str) -> Any:
+	def create_resource(self, name: str) -> Any:
 		result = _bronze_create.sync(
-			client=self._client, body=CreateSourceRequest(name=name)
+			client=self._client, body=CreateResourceRequest(name=name)
 		)
 		return _check_response(result)
 
-	def list_sources(self) -> list[MetadataResponse]:
+	def list_resources(self) -> list[MetadataResponse]:
 		return _bronze_list.sync(client=self._client) or []
 
-	def get_source(self, source_id: int) -> MetadataResponse:
-		result = _bronze_get.sync(source_id=source_id, client=self._client)
+	def get_resource(self, resource_id: int) -> MetadataResponse:
+		result = _bronze_get.sync(resource_id=resource_id, client=self._client)
 		return _check_response(result)
 
-	def update_source(self, source_id: int, name: str) -> MetadataResponse:
+	def update_resource(self, resource_id: int, name: str) -> MetadataResponse:
 		result = _bronze_update.sync(
-			source_id=source_id,
+			resource_id=resource_id,
 			client=self._client,
-			body=UpdateSourceRequest(name=name),
+			body=UpdateResourceRequest(name=name),
 		)
 		return _check_response(result)
 
-	def delete_source(self, source_id: int) -> Any:
-		result = _bronze_delete.sync(source_id=source_id, client=self._client)
+	def delete_resource(self, resource_id: int) -> Any:
+		result = _bronze_delete.sync(resource_id=resource_id, client=self._client)
 		return _check_response(result)
 
-	def list_versions(self, source_id: int) -> list[VersionResponse]:
-		result = _bronze_list_versions.sync(source_id=source_id, client=self._client)
+	def list_versions(self, resource_id: int) -> list[VersionResponse]:
+		result = _bronze_list_versions.sync(
+			resource_id=resource_id, client=self._client
+		)
 		return _check_response(result) or []
 
 	def upload(
 		self,
-		source_id: int,
+		resource_id: int,
 		*,
 		file_path: str | Path | None = None,
 		data: bytes | None = None,
 		file_name: str = "upload",
 	) -> Any:
-		"""Upload a file to a bronze source.
+		"""Upload a file to a bronze resource.
 
 		Provide either ``file_path`` or raw ``data`` bytes.
 		Only files with extensions in ``ALLOWED_EXTENSIONS``
@@ -189,41 +191,41 @@ class BronzeLayer:
 			)
 
 		response = self._client.get_httpx_client().post(
-			f"/bronze/{source_id}/versions",
+			f"/bronze/{resource_id}/versions",
 			files={"file": (file_name, data, "application/octet-stream")},
 		)
 		response.raise_for_status()
 		return response.json()
 
-	def download(self, source_id: int, *, version: int | None = None) -> bytes:
+	def download(self, resource_id: int, *, version: int | None = None) -> bytes:
 		"""Download a bronze version as raw bytes.
 
 		If *version* is ``None``, the latest version is used.
 		"""
 		if version is None:
-			version = self._latest_version(source_id)
+			version = self._latest_version(resource_id)
 		response = self._client.get_httpx_client().get(
-			f"/bronze/{source_id}/versions/{version}"
+			f"/bronze/{resource_id}/versions/{version}"
 		)
 		response.raise_for_status()
 		return response.content
 
-	def delete_version(self, source_id: int, version: int) -> Any:
+	def delete_version(self, resource_id: int, version: int) -> Any:
 		result = _bronze_delete_version.sync(
-			source_id=source_id, version=version, client=self._client
+			resource_id=resource_id, version=version, client=self._client
 		)
 		return _check_response(result)
 
-	def activate_version(self, source_id: int, version: int) -> Any:
+	def activate_version(self, resource_id: int, version: int) -> Any:
 		result = _bronze_activate.sync(
-			source_id=source_id, version=version, client=self._client
+			resource_id=resource_id, version=version, client=self._client
 		)
 		return _check_response(result)
 
-	def _latest_version(self, source_id: int) -> int:
-		versions = self.list_versions(source_id)
+	def _latest_version(self, resource_id: int) -> int:
+		versions = self.list_versions(resource_id)
 		if not versions:
-			raise ValueError(f"No versions found for bronze source {source_id}")
+			raise ValueError(f"No versions found for bronze resource {resource_id}")
 		return max(v.version for v in versions)
 
 
@@ -231,45 +233,47 @@ class SilverLayer:
 	def __init__(self, client: AuthenticatedClient | Client) -> None:
 		self._client = client
 
-	def create_source(self, name: str) -> Any:
+	def create_resource(self, name: str) -> Any:
 		result = _silver_create.sync(
-			client=self._client, body=CreateSilverSourceRequest(name=name)
+			client=self._client, body=CreateSilverResourceRequest(name=name)
 		)
 		return _check_response(result)
 
-	def list_sources(self) -> list[SilverMetadataResponse]:
+	def list_resources(self) -> list[SilverMetadataResponse]:
 		return _silver_list.sync(client=self._client) or []
 
-	def get_source(self, source_id: int) -> SilverMetadataResponse:
-		result = _silver_get.sync(source_id=source_id, client=self._client)
+	def get_resource(self, resource_id: int) -> SilverMetadataResponse:
+		result = _silver_get.sync(resource_id=resource_id, client=self._client)
 		return _check_response(result)
 
-	def update_source(self, source_id: int, name: str) -> SilverMetadataResponse:
+	def update_resource(self, resource_id: int, name: str) -> SilverMetadataResponse:
 		result = _silver_update.sync(
-			source_id=source_id,
+			resource_id=resource_id,
 			client=self._client,
-			body=UpdateSilverSourceRequest(name=name),
+			body=UpdateSilverResourceRequest(name=name),
 		)
 		return _check_response(result)
 
-	def delete_source(self, source_id: int) -> Any:
-		result = _silver_delete.sync(source_id=source_id, client=self._client)
+	def delete_resource(self, resource_id: int) -> Any:
+		result = _silver_delete.sync(resource_id=resource_id, client=self._client)
 		return _check_response(result)
 
-	def list_versions(self, source_id: int) -> list[SilverLineageResponse]:
-		result = _silver_list_versions.sync(source_id=source_id, client=self._client)
+	def list_versions(self, resource_id: int) -> list[SilverLineageResponse]:
+		result = _silver_list_versions.sync(
+			resource_id=resource_id, client=self._client
+		)
 		return _check_response(result) or []
 
 	def upload(
 		self,
-		source_id: int,
+		resource_id: int,
 		data: pl.DataFrame | pl.LazyFrame,
 		*,
-		from_source_id: int,
+		from_resource_id: int,
 	) -> Any:
-		"""Upload a DataFrame/LazyFrame to a silver source.
+		"""Upload a DataFrame/LazyFrame to a silver resource.
 
-		Lineage is tracked via *from_source_id* (the originating bronze source).
+		Lineage is tracked via *from_resource_id* (the originating bronze resource).
 		"""
 		if isinstance(data, pl.LazyFrame):
 			data = data.collect()
@@ -278,30 +282,30 @@ class SilverLayer:
 		parquet_bytes = buf.getvalue()
 
 		response = self._client.get_httpx_client().post(
-			f"/silver/{source_id}/versions",
-			params={"from_source_id": from_source_id},
+			f"/silver/{resource_id}/versions",
+			params={"from_resource_id": from_resource_id},
 			files={"file": ("data.parquet", parquet_bytes, "application/octet-stream")},
 		)
 		response.raise_for_status()
 		return response.json()
 
-	def download(self, source_id: int, *, version: int | None = None) -> pl.LazyFrame:
+	def download(self, resource_id: int, *, version: int | None = None) -> pl.LazyFrame:
 		"""Download a silver version as a LazyFrame.
 
 		If *version* is ``None``, the latest version is used.
 		"""
 		if version is None:
-			version = self._latest_version(source_id)
+			version = self._latest_version(resource_id)
 		response = self._client.get_httpx_client().get(
-			f"/silver/{source_id}/versions/{version}"
+			f"/silver/{resource_id}/versions/{version}"
 		)
 		response.raise_for_status()
 		return pl.read_parquet(io.BytesIO(response.content)).lazy()
 
-	def _latest_version(self, source_id: int) -> int:
-		versions = self.list_versions(source_id)
+	def _latest_version(self, resource_id: int) -> int:
+		versions = self.list_versions(resource_id)
 		if not versions:
-			raise ValueError(f"No versions found for silver source {source_id}")
+			raise ValueError(f"No versions found for silver resource {resource_id}")
 		return max(v.delta_version for v in versions)
 
 
@@ -309,45 +313,45 @@ class GoldLayer:
 	def __init__(self, client: AuthenticatedClient | Client) -> None:
 		self._client = client
 
-	def create_source(self, name: str) -> Any:
+	def create_resource(self, name: str) -> Any:
 		result = _gold_create.sync(
-			client=self._client, body=CreateGoldSourceRequest(name=name)
+			client=self._client, body=CreateGoldResourceRequest(name=name)
 		)
 		return _check_response(result)
 
-	def list_sources(self) -> list[GoldMetadataResponse]:
+	def list_resources(self) -> list[GoldMetadataResponse]:
 		return _gold_list.sync(client=self._client) or []
 
-	def get_source(self, source_id: int) -> GoldMetadataResponse:
-		result = _gold_get.sync(source_id=source_id, client=self._client)
+	def get_resource(self, resource_id: int) -> GoldMetadataResponse:
+		result = _gold_get.sync(resource_id=resource_id, client=self._client)
 		return _check_response(result)
 
-	def update_source(self, source_id: int, name: str) -> GoldMetadataResponse:
+	def update_resource(self, resource_id: int, name: str) -> GoldMetadataResponse:
 		result = _gold_update.sync(
-			source_id=source_id,
+			resource_id=resource_id,
 			client=self._client,
-			body=UpdateGoldSourceRequest(name=name),
+			body=UpdateGoldResourceRequest(name=name),
 		)
 		return _check_response(result)
 
-	def delete_source(self, source_id: int) -> Any:
-		result = _gold_delete.sync(source_id=source_id, client=self._client)
+	def delete_resource(self, resource_id: int) -> Any:
+		result = _gold_delete.sync(resource_id=resource_id, client=self._client)
 		return _check_response(result)
 
-	def list_versions(self, source_id: int) -> list[GoldLineageResponse]:
-		result = _gold_list_versions.sync(source_id=source_id, client=self._client)
+	def list_versions(self, resource_id: int) -> list[GoldLineageResponse]:
+		result = _gold_list_versions.sync(resource_id=resource_id, client=self._client)
 		return _check_response(result) or []
 
 	def upload(
 		self,
-		source_id: int,
+		resource_id: int,
 		data: pl.DataFrame | pl.LazyFrame,
 		*,
-		from_source_ids: list[int],
+		from_resource_ids: list[int],
 	) -> Any:
-		"""Upload a DataFrame/LazyFrame to a gold source.
+		"""Upload a DataFrame/LazyFrame to a gold resource.
 
-		Lineage is tracked via *from_source_ids* (the originating silver sources).
+		Lineage is tracked via *from_resource_ids* (the originating silver resources).
 		"""
 		if isinstance(data, pl.LazyFrame):
 			data = data.collect()
@@ -356,30 +360,30 @@ class GoldLayer:
 		parquet_bytes = buf.getvalue()
 
 		response = self._client.get_httpx_client().post(
-			f"/gold/{source_id}/versions",
-			params={"sources": from_source_ids},
+			f"/gold/{resource_id}/versions",
+			params={"resources": from_resource_ids},
 			files={"file": ("data.parquet", parquet_bytes, "application/octet-stream")},
 		)
 		response.raise_for_status()
 		return response.json()
 
-	def download(self, source_id: int, *, version: int | None = None) -> pl.LazyFrame:
+	def download(self, resource_id: int, *, version: int | None = None) -> pl.LazyFrame:
 		"""Download a gold version as a LazyFrame.
 
 		If *version* is ``None``, the latest version is used.
 		"""
 		if version is None:
-			version = self._latest_version(source_id)
+			version = self._latest_version(resource_id)
 		response = self._client.get_httpx_client().get(
-			f"/gold/{source_id}/versions/{version}"
+			f"/gold/{resource_id}/versions/{version}"
 		)
 		response.raise_for_status()
 		return pl.read_parquet(io.BytesIO(response.content)).lazy()
 
-	def _latest_version(self, source_id: int) -> int:
-		versions = self.list_versions(source_id)
+	def _latest_version(self, resource_id: int) -> int:
+		versions = self.list_versions(resource_id)
 		if not versions:
-			raise ValueError(f"No versions found for gold source {source_id}")
+			raise ValueError(f"No versions found for gold resource {resource_id}")
 		return max(v.delta_version for v in versions)
 
 
@@ -391,12 +395,12 @@ class DataPebbles:
 			dp = DataPebbles("https://api.example.com", token="...")
 
 			# Bronze: upload raw files
-			dp.bronze.create_source("raw_sales")
+			dp.bronze.create_resource("raw_sales")
 			dp.bronze.upload(1, file_path="sales.csv")
 
 			# Silver / Gold: work with LazyFrames
 			lf = dp.silver.download(2)
-			dp.gold.upload(3, lf, from_source_ids=[2])
+			dp.gold.upload(3, lf, from_resource_ids=[2])
 
 
 			# Decorators for lineage-tracked pipelines
@@ -465,12 +469,12 @@ class DataPebbles:
 		``s3_key``), and passes it to the decorated function.
 
 		The result is serialised to Parquet and uploaded to the
-		*target_id* silver source, recording *from_bronze_id* as the
-		originating bronze source.
+		*target_id* silver resource, recording *from_bronze_id* as the
+		originating bronze resource.
 
 		Args:
-			target_id (int): ID of the silver source to upload the result to.
-			from_bronze_id (int): ID of the bronze source to download
+			target_id (int): ID of the silver resource to upload the result to.
+			from_bronze_id (int): ID of the bronze resource to download
 				input from. Also recorded as the lineage origin.
 			csv_separator (str): Separator used when parsing CSV files.
 				Defaults to ``","``.
@@ -510,7 +514,7 @@ class DataPebbles:
 				bronze_data = self.bronze.download(from_bronze_id, version=version_)
 				lf = _read_bronze_bytes(bronze_data, ext, csv_separator=csv_separator)
 				result = func(lf)
-				self.silver.upload(target_id, result, from_source_id=from_bronze_id)
+				self.silver.upload(target_id, result, from_resource_id=from_bronze_id)
 
 			return wrapper
 
@@ -528,17 +532,17 @@ class DataPebbles:
 		"""Decorator: silver → gold with automatic lineage tracking.
 
 		The decorated function receives a ``dict`` mapping each silver
-		source ID to its ``LazyFrame``.  The result is serialised to
-		Parquet and uploaded to the *target_id* gold source, recording all
-		*from_silver_ids* as the originating silver sources.
+		resource ID to its ``LazyFrame``.  The result is serialised to
+		Parquet and uploaded to the *target_id* gold resource, recording all
+		*from_silver_ids* as the originating silver resources.
 
 		Args:
-			target_id (int): ID of the gold source to upload the result to.
-			from_silver_ids (list[int]): List of silver source IDs to
+			target_id (int): ID of the gold resource to upload the result to.
+			from_silver_ids (list[int]): List of silver resource IDs to
 				download as inputs. Also recorded as the lineage origins.
 
 		The decorated function receives
-		``dict[int, pl.LazyFrame]`` keyed by silver source ID
+		``dict[int, pl.LazyFrame]`` keyed by silver resource ID
 		and returns a ``DataFrame`` or ``LazyFrame``.
 
 		Usage::
@@ -565,7 +569,7 @@ class DataPebbles:
 					sid: self.silver.download(sid) for sid in from_silver_ids
 				}
 				result = func(silver_data)
-				self.gold.upload(target_id, result, from_source_ids=from_silver_ids)
+				self.gold.upload(target_id, result, from_resource_ids=from_silver_ids)
 
 			return wrapper
 
