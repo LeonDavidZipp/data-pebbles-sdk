@@ -17,19 +17,19 @@ from data_pebbles import DataPebbles
 
 dp = DataPebbles("http://localhost:8000", token="your-token")
 
-# Bronze: upload raw files
+# Bronze: upload raw files (.csv, .parquet, .json, .xlsx)
 dp.bronze.create_source("raw_sales")
 dp.bronze.upload(1, file_path="sales.csv")
 raw = dp.bronze.download(1)
 
-# Silver: cleaned DataFrames with lineage
+# Silver: cleaned LazyFrames with lineage
 dp.silver.create_source("clean_sales")
-dp.silver.upload(2, df, from_source_id=1)
-df = dp.silver.download(2)
+dp.silver.upload(2, lf, from_source_id=1)
+lf = dp.silver.download(2)
 
-# Gold: aggregated DataFrames with multi-source lineage
+# Gold: aggregated LazyFrames with multi-source lineage
 dp.gold.create_source("sales_summary")
-dp.gold.upload(3, df, from_source_ids=[2])
+dp.gold.upload(3, lf, from_source_ids=[2])
 ```
 
 The client can be used as a context manager:
@@ -43,7 +43,7 @@ with DataPebbles("http://localhost:8000") as dp:
 
 ### Bronze
 
-Stores raw, unprocessed files. Upload any file format and download raw bytes.
+Stores raw, unprocessed files. Only `.csv`, `.parquet`, `.json`, and `.xlsx` files are accepted.
 
 | Method | Description |
 | --- | --- |
@@ -53,8 +53,8 @@ Stores raw, unprocessed files. Upload any file format and download raw bytes.
 | `update_source(source_id, name)` | Rename a source |
 | `delete_source(source_id)` | Delete a source |
 | `list_versions(source_id)` | List all versions |
-| `upload(source_id, *, file_path=None, data=None)` | Upload a file by path or raw bytes |
-| `download(source_id, *, version=None)` | Download raw bytes |
+| `upload(source_id, *, file_path=None, data=None, file_name="upload")` | Upload a file by path or raw bytes |
+| `download(source_id, *, version=None)` | Download raw bytes (defaults to latest version) |
 | `activate_version(source_id, version)` | Set a version as active |
 | `delete_version(source_id, version)` | Delete a version |
 
@@ -94,23 +94,31 @@ Automate downloading, transforming, and uploading data between layers with linea
 
 ### silver_transform
 
-Transforms bronze → silver. The decorated function receives raw bytes and returns a DataFrame or LazyFrame.
+Transforms bronze → silver. The decorator auto-parses bronze data into a `LazyFrame` based on the original file extension. The decorated function receives a `LazyFrame` and returns a `LazyFrame`.
 
 ```python
-@dp.silver_transform(target=2, from_bronze=1)
-def clean(raw: bytes) -> pl.LazyFrame:
-    return pl.read_csv(raw).lazy().filter(pl.col("amount") > 0)
+@dp.silver_transform(target_id=2, from_bronze_id=1)
+def clean(lf: pl.LazyFrame) -> pl.LazyFrame:
+    return lf.filter(pl.col("amount") > 0)
 
 clean()            # uses latest bronze version
 clean(version=5)   # uses a specific bronze version
 ```
 
-### gold_transform
-
-Transforms silver → gold. The decorated function receives a dict mapping silver source IDs to their LazyFrames.
+For CSV files with a non-standard delimiter, use `csv_separator`:
 
 ```python
-@dp.gold_transform(target=3, from_silver=[1, 2])
+@dp.silver_transform(target_id=2, from_bronze_id=1, csv_separator=";")
+def clean_eu(lf: pl.LazyFrame) -> pl.LazyFrame:
+    return lf.filter(pl.col("amount") > 0)
+```
+
+### gold_transform
+
+Transforms silver → gold. The decorated function receives a dict mapping silver source IDs to their LazyFrames and returns a `LazyFrame`.
+
+```python
+@dp.gold_transform(target_id=3, from_silver_ids=[1, 2])
 def aggregate(sources: dict[int, pl.LazyFrame]) -> pl.LazyFrame:
     return (
         pl.concat(sources.values())
