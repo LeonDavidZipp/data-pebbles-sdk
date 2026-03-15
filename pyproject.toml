@@ -1,10 +1,10 @@
 [project]
 name = "data-pebbles"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.0.1"
+description = "A Python library for interacting with the open source data catalog Data Pebbles."
 readme = "README.md"
 authors = [
-    { name = "Leon David Zipp", email = "leondavidzipp@gmx.de" }
+    { name = "Leon David Zipp", email = "leondavidzipp@proton.me" }
 ]
 requires-python = ">=3.13"
 dependencies = [

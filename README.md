@@ -1,6 +1,6 @@
 # Data Pebbles SDK
 
-Python SDK for the Data Pebbles platform — manage data across bronze, silver, and gold layers with built-in lineage tracking.
+Python SDK for the [Data Pebbles](https://github.com/LeonDavidZipp/data-pebbles) platform — manage data across bronze, silver, and gold layers with built-in lineage tracking.
 
 ## Installation
 
@@ -128,7 +128,3 @@ def aggregate(sources: dict[int, pl.LazyFrame]) -> pl.LazyFrame:
 
 aggregate()
 ```
-
-## License
-
-See [LICENSE](LICENSE).
