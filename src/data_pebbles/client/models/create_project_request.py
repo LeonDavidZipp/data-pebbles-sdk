@@ -6,81 +6,65 @@ from typing import Any, TypeVar, cast
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-T = TypeVar("T", bound="GoldMetadataResponse")
+from ..types import UNSET, Unset
+
+T = TypeVar("T", bound="CreateProjectRequest")
 
 
 @_attrs_define
-class GoldMetadataResponse:
+class CreateProjectRequest:
 	"""
 	Attributes:
-	    id (int):
 	    name (str):
-	    description (None | str):
-	    project_id (int):
-	    created_at (str):
+	    description (None | str | Unset):
 	"""
 
-	id: int
 	name: str
-	description: None | str
-	project_id: int
-	created_at: str
+	description: None | str | Unset = UNSET
 	additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 	def to_dict(self) -> dict[str, Any]:
-		id = self.id
-
 		name = self.name
 
-		description: None | str
-		description = self.description
-
-		project_id = self.project_id
-
-		created_at = self.created_at
+		description: None | str | Unset
+		if isinstance(self.description, Unset):
+			description = UNSET
+		else:
+			description = self.description
 
 		field_dict: dict[str, Any] = {}
 		field_dict.update(self.additional_properties)
 		field_dict.update(
 			{
-				"id": id,
 				"name": name,
-				"description": description,
-				"project_id": project_id,
-				"created_at": created_at,
 			}
 		)
+		if description is not UNSET:
+			field_dict["description"] = description
 
 		return field_dict
 
 	@classmethod
 	def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
 		d = dict(src_dict)
-		id = d.pop("id")
-
 		name = d.pop("name")
 
-		def _parse_description(data: object) -> None | str:
+		def _parse_description(data: object) -> None | str | Unset:
 			if data is None:
 				return data
-			return cast(None | str, data)
+			if isinstance(data, Unset):
+				return data
+			return cast(None | str | Unset, data)
 
-		description = _parse_description(d.pop("description"))
+		description = _parse_description(d.pop("description", UNSET))
 
-		project_id = d.pop("project_id")
-
-		created_at = d.pop("created_at")
-
-		gold_metadata_response = cls(
-			id=id,
+		create_project_request = cls(
 			name=name,
 			description=description,
-			project_id=project_id,
-			created_at=created_at,
 		)
 
-		gold_metadata_response.additional_properties = d
-		return gold_metadata_response
+		create_project_request.additional_properties = d
+		return create_project_request
 
 	@property
 	def additional_keys(self) -> list[str]:

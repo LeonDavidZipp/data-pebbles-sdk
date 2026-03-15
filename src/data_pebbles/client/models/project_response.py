@@ -6,24 +6,22 @@ from typing import Any, TypeVar, cast
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-T = TypeVar("T", bound="GoldMetadataResponse")
+T = TypeVar("T", bound="ProjectResponse")
 
 
 @_attrs_define
-class GoldMetadataResponse:
+class ProjectResponse:
 	"""
 	Attributes:
 	    id (int):
 	    name (str):
 	    description (None | str):
-	    project_id (int):
 	    created_at (str):
 	"""
 
 	id: int
 	name: str
 	description: None | str
-	project_id: int
 	created_at: str
 	additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -35,8 +33,6 @@ class GoldMetadataResponse:
 		description: None | str
 		description = self.description
 
-		project_id = self.project_id
-
 		created_at = self.created_at
 
 		field_dict: dict[str, Any] = {}
@@ -46,7 +42,6 @@ class GoldMetadataResponse:
 				"id": id,
 				"name": name,
 				"description": description,
-				"project_id": project_id,
 				"created_at": created_at,
 			}
 		)
@@ -67,20 +62,17 @@ class GoldMetadataResponse:
 
 		description = _parse_description(d.pop("description"))
 
-		project_id = d.pop("project_id")
-
 		created_at = d.pop("created_at")
 
-		gold_metadata_response = cls(
+		project_response = cls(
 			id=id,
 			name=name,
 			description=description,
-			project_id=project_id,
 			created_at=created_at,
 		)
 
-		gold_metadata_response.additional_properties = d
-		return gold_metadata_response
+		project_response.additional_properties = d
+		return project_response
 
 	@property
 	def additional_keys(self) -> list[str]:

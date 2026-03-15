@@ -14,6 +14,7 @@ def _get_kwargs(
 	resource_id: int,
 	version: int,
 ) -> dict[str, Any]:
+
 	_kwargs: dict[str, Any] = {
 		"method": "patch",
 		"url": "/bronze/{resource_id}/versions/{version}".format(

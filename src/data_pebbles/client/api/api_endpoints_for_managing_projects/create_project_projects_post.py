@@ -1,28 +1,31 @@
 from http import HTTPStatus
 from typing import Any
-from urllib.parse import quote
 
 import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...models.create_project_request import CreateProjectRequest
 from ...models.http_validation_error import HTTPValidationError
 from ...types import Response
 
 
 def _get_kwargs(
-	resource_id: int,
-	version: int,
+	*,
+	body: CreateProjectRequest,
 ) -> dict[str, Any]:
+	headers: dict[str, Any] = {}
 
 	_kwargs: dict[str, Any] = {
-		"method": "get",
-		"url": "/silver/{resource_id}/versions/{version}".format(
-			resource_id=quote(str(resource_id), safe=""),
-			version=quote(str(version), safe=""),
-		),
+		"method": "post",
+		"url": "/projects/",
 	}
 
+	_kwargs["json"] = body.to_dict()
+
+	headers["Content-Type"] = "application/json"
+
+	_kwargs["headers"] = headers
 	return _kwargs
 
 
@@ -56,16 +59,14 @@ def _build_response(
 
 
 def sync_detailed(
-	resource_id: int,
-	version: int,
 	*,
 	client: AuthenticatedClient | Client,
+	body: CreateProjectRequest,
 ) -> Response[Any | HTTPValidationError]:
-	"""Download Version
+	"""Create Project
 
 	Args:
-	    resource_id (int):
-	    version (int):
+	    body (CreateProjectRequest):
 
 	Raises:
 	    errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -76,8 +77,7 @@ def sync_detailed(
 	"""
 
 	kwargs = _get_kwargs(
-		resource_id=resource_id,
-		version=version,
+		body=body,
 	)
 
 	response = client.get_httpx_client().request(
@@ -88,16 +88,14 @@ def sync_detailed(
 
 
 def sync(
-	resource_id: int,
-	version: int,
 	*,
 	client: AuthenticatedClient | Client,
+	body: CreateProjectRequest,
 ) -> Any | HTTPValidationError | None:
-	"""Download Version
+	"""Create Project
 
 	Args:
-	    resource_id (int):
-	    version (int):
+	    body (CreateProjectRequest):
 
 	Raises:
 	    errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -108,23 +106,20 @@ def sync(
 	"""
 
 	return sync_detailed(
-		resource_id=resource_id,
-		version=version,
 		client=client,
+		body=body,
 	).parsed
 
 
 async def asyncio_detailed(
-	resource_id: int,
-	version: int,
 	*,
 	client: AuthenticatedClient | Client,
+	body: CreateProjectRequest,
 ) -> Response[Any | HTTPValidationError]:
-	"""Download Version
+	"""Create Project
 
 	Args:
-	    resource_id (int):
-	    version (int):
+	    body (CreateProjectRequest):
 
 	Raises:
 	    errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -135,8 +130,7 @@ async def asyncio_detailed(
 	"""
 
 	kwargs = _get_kwargs(
-		resource_id=resource_id,
-		version=version,
+		body=body,
 	)
 
 	response = await client.get_async_httpx_client().request(**kwargs)
@@ -145,16 +139,14 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-	resource_id: int,
-	version: int,
 	*,
 	client: AuthenticatedClient | Client,
+	body: CreateProjectRequest,
 ) -> Any | HTTPValidationError | None:
-	"""Download Version
+	"""Create Project
 
 	Args:
-	    resource_id (int):
-	    version (int):
+	    body (CreateProjectRequest):
 
 	Raises:
 	    errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -166,8 +158,7 @@ async def asyncio(
 
 	return (
 		await asyncio_detailed(
-			resource_id=resource_id,
-			version=version,
 			client=client,
+			body=body,
 		)
 	).parsed

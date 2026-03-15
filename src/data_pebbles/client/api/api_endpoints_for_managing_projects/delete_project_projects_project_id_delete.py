@@ -11,15 +11,13 @@ from ...types import Response
 
 
 def _get_kwargs(
-	resource_id: int,
-	version: int,
+	project_id: int,
 ) -> dict[str, Any]:
 
 	_kwargs: dict[str, Any] = {
-		"method": "get",
-		"url": "/silver/{resource_id}/versions/{version}".format(
-			resource_id=quote(str(resource_id), safe=""),
-			version=quote(str(version), safe=""),
+		"method": "delete",
+		"url": "/projects/{project_id}".format(
+			project_id=quote(str(project_id), safe=""),
 		),
 	}
 
@@ -56,16 +54,14 @@ def _build_response(
 
 
 def sync_detailed(
-	resource_id: int,
-	version: int,
+	project_id: int,
 	*,
 	client: AuthenticatedClient | Client,
 ) -> Response[Any | HTTPValidationError]:
-	"""Download Version
+	"""Delete Project
 
 	Args:
-	    resource_id (int):
-	    version (int):
+	    project_id (int):
 
 	Raises:
 	    errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -76,8 +72,7 @@ def sync_detailed(
 	"""
 
 	kwargs = _get_kwargs(
-		resource_id=resource_id,
-		version=version,
+		project_id=project_id,
 	)
 
 	response = client.get_httpx_client().request(
@@ -88,16 +83,14 @@ def sync_detailed(
 
 
 def sync(
-	resource_id: int,
-	version: int,
+	project_id: int,
 	*,
 	client: AuthenticatedClient | Client,
 ) -> Any | HTTPValidationError | None:
-	"""Download Version
+	"""Delete Project
 
 	Args:
-	    resource_id (int):
-	    version (int):
+	    project_id (int):
 
 	Raises:
 	    errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -108,23 +101,20 @@ def sync(
 	"""
 
 	return sync_detailed(
-		resource_id=resource_id,
-		version=version,
+		project_id=project_id,
 		client=client,
 	).parsed
 
 
 async def asyncio_detailed(
-	resource_id: int,
-	version: int,
+	project_id: int,
 	*,
 	client: AuthenticatedClient | Client,
 ) -> Response[Any | HTTPValidationError]:
-	"""Download Version
+	"""Delete Project
 
 	Args:
-	    resource_id (int):
-	    version (int):
+	    project_id (int):
 
 	Raises:
 	    errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -135,8 +125,7 @@ async def asyncio_detailed(
 	"""
 
 	kwargs = _get_kwargs(
-		resource_id=resource_id,
-		version=version,
+		project_id=project_id,
 	)
 
 	response = await client.get_async_httpx_client().request(**kwargs)
@@ -145,16 +134,14 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-	resource_id: int,
-	version: int,
+	project_id: int,
 	*,
 	client: AuthenticatedClient | Client,
 ) -> Any | HTTPValidationError | None:
-	"""Download Version
+	"""Delete Project
 
 	Args:
-	    resource_id (int):
-	    version (int):
+	    project_id (int):
 
 	Raises:
 	    errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -166,8 +153,7 @@ async def asyncio(
 
 	return (
 		await asyncio_detailed(
-			resource_id=resource_id,
-			version=version,
+			project_id=project_id,
 			client=client,
 		)
 	).parsed

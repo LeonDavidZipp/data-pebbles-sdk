@@ -13,6 +13,7 @@ from ...types import Response
 def _get_kwargs(
 	resource_id: int,
 ) -> dict[str, Any]:
+
 	_kwargs: dict[str, Any] = {
 		"method": "delete",
 		"url": "/gold/{resource_id}".format(

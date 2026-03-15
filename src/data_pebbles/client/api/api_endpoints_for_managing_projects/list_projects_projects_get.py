@@ -1,26 +1,19 @@
 from http import HTTPStatus
 from typing import Any
-from urllib.parse import quote
 
 import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.http_validation_error import HTTPValidationError
+from ...models.project_response import ProjectResponse
 from ...types import Response
 
 
-def _get_kwargs(
-	resource_id: int,
-	version: int,
-) -> dict[str, Any]:
+def _get_kwargs() -> dict[str, Any]:
 
 	_kwargs: dict[str, Any] = {
 		"method": "get",
-		"url": "/silver/{resource_id}/versions/{version}".format(
-			resource_id=quote(str(resource_id), safe=""),
-			version=quote(str(version), safe=""),
-		),
+		"url": "/projects/",
 	}
 
 	return _kwargs
@@ -28,15 +21,16 @@ def _get_kwargs(
 
 def _parse_response(
 	*, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Any | HTTPValidationError | None:
+) -> list[ProjectResponse] | None:
 	if response.status_code == 200:
-		response_200 = response.json()
+		response_200 = []
+		_response_200 = response.json()
+		for response_200_item_data in _response_200:
+			response_200_item = ProjectResponse.from_dict(response_200_item_data)
+
+			response_200.append(response_200_item)
+
 		return response_200
-
-	if response.status_code == 422:
-		response_422 = HTTPValidationError.from_dict(response.json())
-
-		return response_422
 
 	if client.raise_on_unexpected_status:
 		raise errors.UnexpectedStatus(response.status_code, response.content)
@@ -46,7 +40,7 @@ def _parse_response(
 
 def _build_response(
 	*, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[Any | HTTPValidationError]:
+) -> Response[list[ProjectResponse]]:
 	return Response(
 		status_code=HTTPStatus(response.status_code),
 		content=response.content,
@@ -56,29 +50,20 @@ def _build_response(
 
 
 def sync_detailed(
-	resource_id: int,
-	version: int,
 	*,
 	client: AuthenticatedClient | Client,
-) -> Response[Any | HTTPValidationError]:
-	"""Download Version
-
-	Args:
-	    resource_id (int):
-	    version (int):
+) -> Response[list[ProjectResponse]]:
+	"""List Projects
 
 	Raises:
 	    errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
 	    httpx.TimeoutException: If the request takes longer than Client.timeout.
 
 	Returns:
-	    Response[Any | HTTPValidationError]
+	    Response[list[ProjectResponse]]
 	"""
 
-	kwargs = _get_kwargs(
-		resource_id=resource_id,
-		version=version,
-	)
+	kwargs = _get_kwargs()
 
 	response = client.get_httpx_client().request(
 		**kwargs,
@@ -88,56 +73,39 @@ def sync_detailed(
 
 
 def sync(
-	resource_id: int,
-	version: int,
 	*,
 	client: AuthenticatedClient | Client,
-) -> Any | HTTPValidationError | None:
-	"""Download Version
-
-	Args:
-	    resource_id (int):
-	    version (int):
+) -> list[ProjectResponse] | None:
+	"""List Projects
 
 	Raises:
 	    errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
 	    httpx.TimeoutException: If the request takes longer than Client.timeout.
 
 	Returns:
-	    Any | HTTPValidationError
+	    list[ProjectResponse]
 	"""
 
 	return sync_detailed(
-		resource_id=resource_id,
-		version=version,
 		client=client,
 	).parsed
 
 
 async def asyncio_detailed(
-	resource_id: int,
-	version: int,
 	*,
 	client: AuthenticatedClient | Client,
-) -> Response[Any | HTTPValidationError]:
-	"""Download Version
-
-	Args:
-	    resource_id (int):
-	    version (int):
+) -> Response[list[ProjectResponse]]:
+	"""List Projects
 
 	Raises:
 	    errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
 	    httpx.TimeoutException: If the request takes longer than Client.timeout.
 
 	Returns:
-	    Response[Any | HTTPValidationError]
+	    Response[list[ProjectResponse]]
 	"""
 
-	kwargs = _get_kwargs(
-		resource_id=resource_id,
-		version=version,
-	)
+	kwargs = _get_kwargs()
 
 	response = await client.get_async_httpx_client().request(**kwargs)
 
@@ -145,29 +113,21 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-	resource_id: int,
-	version: int,
 	*,
 	client: AuthenticatedClient | Client,
-) -> Any | HTTPValidationError | None:
-	"""Download Version
-
-	Args:
-	    resource_id (int):
-	    version (int):
+) -> list[ProjectResponse] | None:
+	"""List Projects
 
 	Raises:
 	    errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
 	    httpx.TimeoutException: If the request takes longer than Client.timeout.
 
 	Returns:
-	    Any | HTTPValidationError
+	    list[ProjectResponse]
 	"""
 
 	return (
 		await asyncio_detailed(
-			resource_id=resource_id,
-			version=version,
 			client=client,
 		)
 	).parsed
