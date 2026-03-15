@@ -69,7 +69,7 @@ def expected_dict() -> dict[str, list[int]]:
 def version_response() -> VersionResponse:
 	return VersionResponse(
 		id=1,
-		source_id=1,
+		resource_id=1,
 		version=1,
 		status="active",
 		s3_key="data.csv",
@@ -82,9 +82,9 @@ def version_response() -> VersionResponse:
 def silver_lineage() -> SilverLineageResponse:
 	return SilverLineageResponse(
 		id=1,
-		source_id=1,
+		resource_id=1,
 		delta_version=1,
-		from_source_id=1,
+		from_resource_id=1,
 		created_at="2026-01-01T00:00:00Z",
 	)
 
@@ -93,9 +93,9 @@ def silver_lineage() -> SilverLineageResponse:
 def gold_lineage() -> GoldLineageResponse:
 	return GoldLineageResponse(
 		id=1,
-		source_id=1,
+		resource_id=1,
 		delta_version=1,
-		from_source_id=1,
+		from_resource_id=1,
 		created_at="2026-01-01T00:00:00Z",
 	)
 
@@ -210,45 +210,45 @@ class TestCheckResponse:
 
 
 class TestBronzeLayer:
-	def test_create_source(self, bronze: BronzeLayer):
+	def test_create_resource(self, bronze: BronzeLayer):
 		with patch(f"{_SDK_MOD}._bronze_create") as m:
 			m.sync.return_value = MetadataResponse(
 				id=1, name="src", created_at="2026-01-01T00:00:00Z"
 			)
-			result = bronze.create_source("src")
+			result = bronze.create_resource("src")
 			assert result.id == 1
 			m.sync.assert_called_once()
 
-	def test_list_sources(self, bronze: BronzeLayer):
+	def test_list_resources(self, bronze: BronzeLayer):
 		with patch(f"{_SDK_MOD}._bronze_list") as m:
 			m.sync.return_value = [
 				MetadataResponse(id=1, name="a", created_at="2026-01-01T00:00:00Z"),
 			]
-			assert len(bronze.list_sources()) == 1
+			assert len(bronze.list_resources()) == 1
 
-	def test_list_sources_returns_empty_on_none(self, bronze: BronzeLayer):
+	def test_list_resources_returns_empty_on_none(self, bronze: BronzeLayer):
 		with patch(f"{_SDK_MOD}._bronze_list") as m:
 			m.sync.return_value = None
-			assert bronze.list_sources() == []
+			assert bronze.list_resources() == []
 
-	def test_get_source(self, bronze: BronzeLayer):
+	def test_get_resource(self, bronze: BronzeLayer):
 		with patch(f"{_SDK_MOD}._bronze_get") as m:
 			m.sync.return_value = MetadataResponse(
 				id=1, name="s", created_at="2026-01-01T00:00:00Z"
 			)
-			assert bronze.get_source(1).name == "s"
+			assert bronze.get_resource(1).name == "s"
 
-	def test_update_source(self, bronze: BronzeLayer):
+	def test_update_resource(self, bronze: BronzeLayer):
 		with patch(f"{_SDK_MOD}._bronze_update") as m:
 			m.sync.return_value = MetadataResponse(
 				id=1, name="new", created_at="2026-01-01T00:00:00Z"
 			)
-			assert bronze.update_source(1, "new").name == "new"
+			assert bronze.update_resource(1, "new").name == "new"
 
-	def test_delete_source(self, bronze: BronzeLayer):
+	def test_delete_resource(self, bronze: BronzeLayer):
 		with patch(f"{_SDK_MOD}._bronze_delete") as m:
 			m.sync.return_value = {"ok": True}
-			assert bronze.delete_source(1) == {"ok": True}
+			assert bronze.delete_resource(1) == {"ok": True}
 
 	def test_list_versions(
 		self, bronze: BronzeLayer, version_response: VersionResponse
@@ -305,7 +305,7 @@ class TestBronzeLayer:
 			m.sync.return_value = [
 				VersionResponse(
 					id=1,
-					source_id=1,
+					resource_id=1,
 					version=1,
 					status="active",
 					s3_key="d.csv",
@@ -314,7 +314,7 @@ class TestBronzeLayer:
 				),
 				VersionResponse(
 					id=2,
-					source_id=1,
+					resource_id=1,
 					version=5,
 					status="active",
 					s3_key="d.csv",
@@ -348,45 +348,45 @@ class TestBronzeLayer:
 
 
 class TestSilverLayer:
-	def test_create_source(self, silver: SilverLayer):
+	def test_create_resource(self, silver: SilverLayer):
 		with patch(f"{_SDK_MOD}._silver_create") as m:
 			m.sync.return_value = SilverMetadataResponse(
 				id=1, name="s", created_at="2026-01-01T00:00:00Z"
 			)
-			assert silver.create_source("s").id == 1
+			assert silver.create_resource("s").id == 1
 
-	def test_list_sources(self, silver: SilverLayer):
+	def test_list_resources(self, silver: SilverLayer):
 		with patch(f"{_SDK_MOD}._silver_list") as m:
 			m.sync.return_value = [
 				SilverMetadataResponse(
 					id=1, name="s", created_at="2026-01-01T00:00:00Z"
 				),
 			]
-			assert len(silver.list_sources()) == 1
+			assert len(silver.list_resources()) == 1
 
-	def test_list_sources_returns_empty_on_none(self, silver: SilverLayer):
+	def test_list_resources_returns_empty_on_none(self, silver: SilverLayer):
 		with patch(f"{_SDK_MOD}._silver_list") as m:
 			m.sync.return_value = None
-			assert silver.list_sources() == []
+			assert silver.list_resources() == []
 
-	def test_get_source(self, silver: SilverLayer):
+	def test_get_resource(self, silver: SilverLayer):
 		with patch(f"{_SDK_MOD}._silver_get") as m:
 			m.sync.return_value = SilverMetadataResponse(
 				id=1, name="s", created_at="2026-01-01T00:00:00Z"
 			)
-			assert silver.get_source(1).name == "s"
+			assert silver.get_resource(1).name == "s"
 
-	def test_update_source(self, silver: SilverLayer):
+	def test_update_resource(self, silver: SilverLayer):
 		with patch(f"{_SDK_MOD}._silver_update") as m:
 			m.sync.return_value = SilverMetadataResponse(
 				id=1, name="new", created_at="2026-01-01T00:00:00Z"
 			)
-			assert silver.update_source(1, "new").name == "new"
+			assert silver.update_resource(1, "new").name == "new"
 
-	def test_delete_source(self, silver: SilverLayer):
+	def test_delete_resource(self, silver: SilverLayer):
 		with patch(f"{_SDK_MOD}._silver_delete") as m:
 			m.sync.return_value = {"ok": True}
-			assert silver.delete_source(1) == {"ok": True}
+			assert silver.delete_resource(1) == {"ok": True}
 
 	def test_list_versions(
 		self, silver: SilverLayer, silver_lineage: SilverLineageResponse
@@ -401,10 +401,10 @@ class TestSilverLayer:
 		mock_httpx.post.return_value = resp
 
 		df = pl.DataFrame({"x": [1, 2]})
-		silver.upload(1, df, from_source_id=10)
+		silver.upload(1, df, from_resource_id=10)
 
 		mock_httpx.post.assert_called_once()
-		assert mock_httpx.post.call_args.kwargs["params"] == {"from_source_id": 10}
+		assert mock_httpx.post.call_args.kwargs["params"] == {"from_resource_id": 10}
 
 	def test_upload_lazyframe(self, silver: SilverLayer, mock_httpx: MagicMock):
 		resp = MagicMock()
@@ -412,7 +412,7 @@ class TestSilverLayer:
 		mock_httpx.post.return_value = resp
 
 		lf = pl.DataFrame({"x": [1, 2]}).lazy()
-		silver.upload(1, lf, from_source_id=10)
+		silver.upload(1, lf, from_resource_id=10)
 		mock_httpx.post.assert_called_once()
 
 	def test_download_specific_version(
@@ -441,16 +441,16 @@ class TestSilverLayer:
 			m.sync.return_value = [
 				SilverLineageResponse(
 					id=1,
-					source_id=1,
+					resource_id=1,
 					delta_version=1,
-					from_source_id=1,
+					from_resource_id=1,
 					created_at="2026-01-01T00:00:00Z",
 				),
 				SilverLineageResponse(
 					id=2,
-					source_id=1,
+					resource_id=1,
 					delta_version=3,
-					from_source_id=1,
+					from_resource_id=1,
 					created_at="2026-01-01T00:00:00Z",
 				),
 			]
@@ -471,43 +471,43 @@ class TestSilverLayer:
 
 
 class TestGoldLayer:
-	def test_create_source(self, gold: GoldLayer):
+	def test_create_resource(self, gold: GoldLayer):
 		with patch(f"{_SDK_MOD}._gold_create") as m:
 			m.sync.return_value = GoldMetadataResponse(
 				id=1, name="g", created_at="2026-01-01T00:00:00Z"
 			)
-			assert gold.create_source("g").id == 1
+			assert gold.create_resource("g").id == 1
 
-	def test_list_sources(self, gold: GoldLayer):
+	def test_list_resources(self, gold: GoldLayer):
 		with patch(f"{_SDK_MOD}._gold_list") as m:
 			m.sync.return_value = [
 				GoldMetadataResponse(id=1, name="g", created_at="2026-01-01T00:00:00Z"),
 			]
-			assert len(gold.list_sources()) == 1
+			assert len(gold.list_resources()) == 1
 
-	def test_list_sources_returns_empty_on_none(self, gold: GoldLayer):
+	def test_list_resources_returns_empty_on_none(self, gold: GoldLayer):
 		with patch(f"{_SDK_MOD}._gold_list") as m:
 			m.sync.return_value = None
-			assert gold.list_sources() == []
+			assert gold.list_resources() == []
 
-	def test_get_source(self, gold: GoldLayer):
+	def test_get_resource(self, gold: GoldLayer):
 		with patch(f"{_SDK_MOD}._gold_get") as m:
 			m.sync.return_value = GoldMetadataResponse(
 				id=1, name="g", created_at="2026-01-01T00:00:00Z"
 			)
-			assert gold.get_source(1).name == "g"
+			assert gold.get_resource(1).name == "g"
 
-	def test_update_source(self, gold: GoldLayer):
+	def test_update_resource(self, gold: GoldLayer):
 		with patch(f"{_SDK_MOD}._gold_update") as m:
 			m.sync.return_value = GoldMetadataResponse(
 				id=1, name="new", created_at="2026-01-01T00:00:00Z"
 			)
-			assert gold.update_source(1, "new").name == "new"
+			assert gold.update_resource(1, "new").name == "new"
 
-	def test_delete_source(self, gold: GoldLayer):
+	def test_delete_resource(self, gold: GoldLayer):
 		with patch(f"{_SDK_MOD}._gold_delete") as m:
 			m.sync.return_value = {"ok": True}
-			assert gold.delete_source(1) == {"ok": True}
+			assert gold.delete_resource(1) == {"ok": True}
 
 	def test_list_versions(self, gold: GoldLayer, gold_lineage: GoldLineageResponse):
 		with patch(f"{_SDK_MOD}._gold_list_versions") as m:
@@ -520,10 +520,10 @@ class TestGoldLayer:
 		mock_httpx.post.return_value = resp
 
 		df = pl.DataFrame({"x": [1, 2]})
-		gold.upload(1, df, from_source_ids=[10, 11])
+		gold.upload(1, df, from_resource_ids=[10, 11])
 
 		mock_httpx.post.assert_called_once()
-		assert mock_httpx.post.call_args.kwargs["params"] == {"sources": [10, 11]}
+		assert mock_httpx.post.call_args.kwargs["params"] == {"resources": [10, 11]}
 
 	def test_upload_lazyframe(self, gold: GoldLayer, mock_httpx: MagicMock):
 		resp = MagicMock()
@@ -531,7 +531,7 @@ class TestGoldLayer:
 		mock_httpx.post.return_value = resp
 
 		lf = pl.DataFrame({"x": [1, 2]}).lazy()
-		gold.upload(1, lf, from_source_ids=[10])
+		gold.upload(1, lf, from_resource_ids=[10])
 		mock_httpx.post.assert_called_once()
 
 	def test_download_specific_version(
@@ -555,16 +555,16 @@ class TestGoldLayer:
 			m.sync.return_value = [
 				GoldLineageResponse(
 					id=1,
-					source_id=1,
+					resource_id=1,
 					delta_version=1,
-					from_source_id=1,
+					from_resource_id=1,
 					created_at="2026-01-01T00:00:00Z",
 				),
 				GoldLineageResponse(
 					id=2,
-					source_id=1,
+					resource_id=1,
 					delta_version=7,
-					from_source_id=1,
+					from_resource_id=1,
 					created_at="2026-01-01T00:00:00Z",
 				),
 			]
@@ -626,7 +626,7 @@ class TestSilverTransform:
 			return_value=[
 				VersionResponse(
 					id=1,
-					source_id=1,
+					resource_id=1,
 					version=1,
 					status="active",
 					s3_key="data.csv",
@@ -649,14 +649,14 @@ class TestSilverTransform:
 		dp.silver.upload.assert_called_once()
 		call_args = dp.silver.upload.call_args
 		assert call_args.args[0] == 2
-		assert call_args.kwargs["from_source_id"] == 1
+		assert call_args.kwargs["from_resource_id"] == 1
 
 	def test_specific_version(self, dp: DataPebbles, csv_bytes: bytes):
 		dp.bronze.list_versions = MagicMock(
 			return_value=[
 				VersionResponse(
 					id=1,
-					source_id=1,
+					resource_id=1,
 					version=5,
 					status="active",
 					s3_key="data.csv",
@@ -686,7 +686,7 @@ class TestSilverTransform:
 			return_value=[
 				VersionResponse(
 					id=1,
-					source_id=1,
+					resource_id=1,
 					version=1,
 					status="active",
 					s3_key="data.csv",
@@ -714,7 +714,7 @@ class TestSilverTransform:
 			return_value=[
 				VersionResponse(
 					id=1,
-					source_id=1,
+					resource_id=1,
 					version=1,
 					status="active",
 					s3_key="data.parquet",
@@ -759,7 +759,7 @@ class TestGoldTransform:
 		dp.gold.upload.assert_called_once()
 		call_args = dp.gold.upload.call_args
 		assert call_args.args[0] == 3
-		assert call_args.kwargs["from_source_ids"] == [1, 2]
+		assert call_args.kwargs["from_resource_ids"] == [1, 2]
 
 	def test_result_is_uploaded(self, dp: DataPebbles, parquet_bytes: bytes):
 		httpx: MagicMock = cast(Any, dp.silver._client).get_httpx_client()
