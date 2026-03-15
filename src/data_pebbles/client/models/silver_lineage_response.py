@@ -14,27 +14,27 @@ class SilverLineageResponse:
 	"""
 	Attributes:
 	    id (int):
-	    source_id (int):
+	    resource_id (int):
 	    delta_version (int):
-	    from_source_id (int):
+	    from_resource_id (int):
 	    created_at (str):
 	"""
 
 	id: int
-	source_id: int
+	resource_id: int
 	delta_version: int
-	from_source_id: int
+	from_resource_id: int
 	created_at: str
 	additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 	def to_dict(self) -> dict[str, Any]:
 		id = self.id
 
-		source_id = self.source_id
+		resource_id = self.resource_id
 
 		delta_version = self.delta_version
 
-		from_source_id = self.from_source_id
+		from_resource_id = self.from_resource_id
 
 		created_at = self.created_at
 
@@ -43,9 +43,9 @@ class SilverLineageResponse:
 		field_dict.update(
 			{
 				"id": id,
-				"source_id": source_id,
+				"resource_id": resource_id,
 				"delta_version": delta_version,
-				"from_source_id": from_source_id,
+				"from_resource_id": from_resource_id,
 				"created_at": created_at,
 			}
 		)
@@ -57,19 +57,19 @@ class SilverLineageResponse:
 		d = dict(src_dict)
 		id = d.pop("id")
 
-		source_id = d.pop("source_id")
+		resource_id = d.pop("resource_id")
 
 		delta_version = d.pop("delta_version")
 
-		from_source_id = d.pop("from_source_id")
+		from_resource_id = d.pop("from_resource_id")
 
 		created_at = d.pop("created_at")
 
 		silver_lineage_response = cls(
 			id=id,
-			source_id=source_id,
+			resource_id=resource_id,
 			delta_version=delta_version,
-			from_source_id=from_source_id,
+			from_resource_id=from_resource_id,
 			created_at=created_at,
 		)
 

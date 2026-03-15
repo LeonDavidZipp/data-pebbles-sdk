@@ -14,7 +14,7 @@ class VersionResponse:
 	"""
 	Attributes:
 	    id (int):
-	    source_id (int):
+	    resource_id (int):
 	    version (int):
 	    status (str):
 	    s3_key (str):
@@ -23,7 +23,7 @@ class VersionResponse:
 	"""
 
 	id: int
-	source_id: int
+	resource_id: int
 	version: int
 	status: str
 	s3_key: str
@@ -34,7 +34,7 @@ class VersionResponse:
 	def to_dict(self) -> dict[str, Any]:
 		id = self.id
 
-		source_id = self.source_id
+		resource_id = self.resource_id
 
 		version = self.version
 
@@ -51,7 +51,7 @@ class VersionResponse:
 		field_dict.update(
 			{
 				"id": id,
-				"source_id": source_id,
+				"resource_id": resource_id,
 				"version": version,
 				"status": status,
 				"s3_key": s3_key,
@@ -67,7 +67,7 @@ class VersionResponse:
 		d = dict(src_dict)
 		id = d.pop("id")
 
-		source_id = d.pop("source_id")
+		resource_id = d.pop("resource_id")
 
 		version = d.pop("version")
 
@@ -81,7 +81,7 @@ class VersionResponse:
 
 		version_response = cls(
 			id=id,
-			source_id=source_id,
+			resource_id=resource_id,
 			version=version,
 			status=status,
 			s3_key=s3_key,
