@@ -23,18 +23,22 @@ from data_pebbles import DataPebbles
 
 dp = DataPebbles("http://localhost:8000", token="your-token")
 
-# Bronze: upload raw files (.csv, .parquet, .json, .xlsx)
-dp.bronze.create_resource("raw_sales")
-dp.bronze.upload(1, file_path="sales.csv")
-raw = dp.bronze.download(1)
+# Projects: create and list projects
+dp.projects.create_project("analytics", description="Analytics workspace")
+projects = dp.projects.list_projects()
 
-# Silver: cleaned LazyFrames with lineage
-dp.silver.create_resource("clean_sales")
+# Bronze: create a resource in a project and upload (.csv, .parquet, .json, .xlsx)
+dp.bronze.create_resource("raw_sales", project_id=projects[0].id)
+dp.bronze.upload(projects[0].id, file_path="sales.csv")
+raw = dp.bronze.download(projects[0].id)
+
+# Silver: create resource inside a project and upload LazyFrame with lineage
+dp.silver.create_resource("clean_sales", project_id=projects[0].id)
 dp.silver.upload(2, lf, from_resource_id=1)
 lf = dp.silver.download(2)
 
 # Gold: aggregated LazyFrames with multi-source lineage
-dp.gold.create_resource("sales_summary")
+dp.gold.create_resource("sales_summary", project_id=projects[0].id)
 dp.gold.upload(3, lf, from_resource_ids=[2])
 ```
 
