@@ -1,6 +1,6 @@
 [project]
 name = "data-pebbles"
-version = "0.0.1"
+version = "0.0.2"
 description = "A Python library for interacting with the open source data catalog Data Pebbles."
 readme = "README.md"
 authors = [
