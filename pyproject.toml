@@ -19,10 +19,10 @@ requires = ["uv_build>=0.9.26,<0.10.0"]
 build-backend = "uv_build"
 
 [tool.pyright]
-exclude = ["src/data_pebbles/client", ".venv", "**/__pycache__"]
+exclude = ["src/data_pebbles/client", ".venv", "**/__pycache__", "tests"]
 
 [tool.mypy]
-exclude = ["src/data_pebbles/client", ".venv", "**/__pycache__"]
+exclude = ["src/data_pebbles/client", ".venv", "**/__pycache__", "tests"]
 
 [tool.ruff]
 exclude = ["src/data_pebbles/client"]
