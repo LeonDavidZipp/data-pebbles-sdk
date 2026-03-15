@@ -90,6 +90,34 @@ from data_pebbles.client.models.update_silver_source_request import (
 from data_pebbles.client.models.update_source_request import UpdateSourceRequest
 from data_pebbles.client.models.version_response import VersionResponse
 
+ALLOWED_EXTENSIONS = {".csv", ".parquet", ".json", ".xlsx"}
+
+
+def _read_bronze_bytes(
+	data: bytes, ext: str, *, csv_separator: str = ","
+) -> pl.LazyFrame:
+	"""Parse raw bronze bytes into a LazyFrame based on file extension."""
+	buf = io.BytesIO(data)
+	try:
+		if ext == ".csv":
+			return pl.read_csv(buf, separator=csv_separator).lazy()
+		if ext == ".parquet":
+			return pl.read_parquet(buf).lazy()
+		if ext == ".json":
+			return pl.read_json(buf).lazy()
+		if ext == ".xlsx":
+			return pl.read_excel(buf).lazy()
+	except Exception as exc:
+		raise ValueError(
+			f"Failed to parse bronze data as {ext!r}. "
+			f"Uploaded files must contain valid tabular data. "
+			f"Original error: {exc}"
+		) from exc
+	raise ValueError(
+		f"Unsupported file extension {ext!r}. "
+		f"Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
+	)
+
 
 def _check_response(result: Any) -> Any:
 	if isinstance(result, HTTPValidationError):
@@ -143,6 +171,8 @@ class BronzeLayer:
 		"""Upload a file to a bronze source.
 
 		Provide either ``file_path`` or raw ``data`` bytes.
+		Only files with extensions in ``ALLOWED_EXTENSIONS``
+		(.csv, .parquet, .json, .xlsx) are accepted.
 		"""
 		if file_path is not None:
 			path = Path(file_path)
@@ -150,6 +180,13 @@ class BronzeLayer:
 			data = path.read_bytes()
 		elif data is None:
 			raise ValueError("Provide either file_path or data")
+
+		ext = Path(file_name).suffix.lower()
+		if ext not in ALLOWED_EXTENSIONS:
+			raise ValueError(
+				f"Unsupported file extension {ext!r}. "
+				f"Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
+			)
 
 		response = self._client.get_httpx_client().post(
 			f"/bronze/{source_id}/versions",
@@ -358,14 +395,14 @@ class DataPebbles:
 			dp.bronze.upload(1, file_path="sales.csv")
 
 			# Silver / Gold: work with LazyFrames
-			df = dp.silver.download(2)
-			dp.gold.upload(3, df, from_source_ids=[2])
+			lf = dp.silver.download(2)
+			dp.gold.upload(3, lf, from_source_ids=[2])
 
 
 			# Decorators for lineage-tracked pipelines
-			@dp.silver_transform(target=2, from_bronze=1)
-			def clean(raw: bytes) -> pl.LazyFrame:
-				return pl.read_csv(raw).lazy()
+			@dp.silver_transform(target_id=2, from_bronze_id=1)
+			def clean(lf: pl.LazyFrame) -> pl.LazyFrame:
+					return lf.filter(pl.col("x") > 0)
 
 
 			clean()  # runs on latest bronze version
@@ -414,38 +451,66 @@ class DataPebbles:
 	def silver_transform(
 		self,
 		*,
-		target: int,
-		from_bronze: int,
+		target_id: int,
+		from_bronze_id: int,
+		csv_separator: str = ",",
 	) -> Callable[
-		[Callable[[bytes], pl.DataFrame | pl.LazyFrame]],
+		[Callable[[pl.LazyFrame], pl.DataFrame | pl.LazyFrame]],
 		Callable[..., None],
 	]:
 		"""Decorator: bronze → silver with automatic lineage tracking.
 
-		The decorated function receives the raw bronze bytes and must
-		return a ``DataFrame`` or ``LazyFrame``.  The result is serialised
-		to Parquet and uploaded to the *target* silver source, recording
-		*from_bronze* as the originating bronze source.
+		The decorator downloads the bronze data, auto-parses it into a
+		``LazyFrame`` based on the original file extension (from the
+		``s3_key``), and passes it to the decorated function.
+
+		The result is serialised to Parquet and uploaded to the
+		*target_id* silver source, recording *from_bronze_id* as the
+		originating bronze source.
+
+		Args:
+			target_id (int): ID of the silver source to upload the result to.
+			from_bronze_id (int): ID of the bronze source to download
+				input from. Also recorded as the lineage origin.
+			csv_separator (str): Separator used when parsing CSV files.
+				Defaults to ``","``.
+
+		The resulting wrapper accepts an optional ``version`` keyword
+		argument to pin a specific bronze version (defaults to latest).
 
 		Usage::
 
-				@dp.silver_transform(target=2, from_bronze=1)
-				def clean(raw: bytes) -> pl.LazyFrame:
-					return pl.read_csv(raw).lazy().filter(pl.col("x") > 0)
+				@dp.silver_transform(target_id=2, from_bronze_id=1)
+				def clean(lf: pl.LazyFrame) -> pl.LazyFrame:
+					return lf.filter(pl.col("x") > 0)
 
 
-				clean()  # uses latest bronze version
-				clean(version=5)  # uses specific bronze version
+				# With a custom CSV separator
+				@dp.silver_transform(
+					target_id=3, from_bronze_id=2, csv_separator=";"
+				)
+				def clean_eu(lf: pl.LazyFrame) -> pl.LazyFrame:
+					return lf.filter(pl.col("x") > 0)
 		"""
 
 		def decorator(
-			func: Callable[[bytes], pl.DataFrame | pl.LazyFrame],
+			func: Callable[[pl.LazyFrame], pl.DataFrame | pl.LazyFrame],
 		) -> Callable[..., None]:
 			@wraps(func)
 			def wrapper(*, version: int | None = None) -> None:
-				bronze_data = self.bronze.download(from_bronze, version=version)
-				result = func(bronze_data)
-				self.silver.upload(target, result, from_source_id=from_bronze)
+				if version is None:
+					version_ = self.bronze._latest_version(from_bronze_id)
+				else:
+					version_ = version
+
+				versions = self.bronze.list_versions(from_bronze_id)
+				ver = next(v for v in versions if v.version == version_)
+				ext = Path(ver.s3_key).suffix.lower()
+
+				bronze_data = self.bronze.download(from_bronze_id, version=version_)
+				lf = _read_bronze_bytes(bronze_data, ext, csv_separator=csv_separator)
+				result = func(lf)
+				self.silver.upload(target_id, result, from_source_id=from_bronze_id)
 
 			return wrapper
 
@@ -454,8 +519,8 @@ class DataPebbles:
 	def gold_transform(
 		self,
 		*,
-		target: int,
-		from_silver: list[int],
+		target_id: int,
+		from_silver_ids: list[int],
 	) -> Callable[
 		[Callable[[dict[int, pl.LazyFrame]], pl.DataFrame | pl.LazyFrame]],
 		Callable[..., None],
@@ -464,12 +529,21 @@ class DataPebbles:
 
 		The decorated function receives a ``dict`` mapping each silver
 		source ID to its ``LazyFrame``.  The result is serialised to
-		Parquet and uploaded to the *target* gold source, recording all
-		*from_silver* IDs as the originating silver sources.
+		Parquet and uploaded to the *target_id* gold source, recording all
+		*from_silver_ids* as the originating silver sources.
+
+		Args:
+			target_id (int): ID of the gold source to upload the result to.
+			from_silver_ids (list[int]): List of silver source IDs to
+				download as inputs. Also recorded as the lineage origins.
+
+		The decorated function receives
+		``dict[int, pl.LazyFrame]`` keyed by silver source ID
+		and returns a ``DataFrame`` or ``LazyFrame``.
 
 		Usage::
 
-				@dp.gold_transform(target=3, from_silver=[1, 2])
+				@dp.gold_transform(target_id=3, from_silver_ids=[1, 2])
 				def aggregate(
 					sources: dict[int, pl.LazyFrame],
 				) -> pl.LazyFrame:
@@ -487,9 +561,11 @@ class DataPebbles:
 		) -> Callable[..., None]:
 			@wraps(func)
 			def wrapper() -> None:
-				silver_data = {sid: self.silver.download(sid) for sid in from_silver}
+				silver_data = {
+					sid: self.silver.download(sid) for sid in from_silver_ids
+				}
 				result = func(silver_data)
-				self.gold.upload(target, result, from_source_ids=from_silver)
+				self.gold.upload(target_id, result, from_source_ids=from_silver_ids)
 
 			return wrapper
 
