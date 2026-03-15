@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
@@ -29,8 +29,8 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --dev --frozen
-      - run: uv run ruff check src/data_pebbles/sdk.py
-      - run: uv run ruff format --check src/data_pebbles/sdk.py
+      - run: uv tool run ruff check src/data_pebbles/sdk.py
+      - run: uv tool run ruff format --check src/data_pebbles/sdk.py
 
   test:
     name: Test (${{ matrix.os }})
@@ -44,7 +44,7 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
