@@ -8,6 +8,12 @@ Python SDK for the [Data Pebbles](https://github.com/LeonDavidZipp/data-pebbles)
 pip install data-pebbles
 ```
 
+or with `uv`:
+
+```bash
+uv pip install data-pebbles
+```
+
 Requires Python 3.13+. Dependencies: `polars`, `httpx`, `mlflow`.
 
 ## Quick Start
