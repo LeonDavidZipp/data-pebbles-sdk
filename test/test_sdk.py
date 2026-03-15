@@ -213,16 +213,26 @@ class TestBronzeLayer:
 	def test_create_resource(self, bronze: BronzeLayer):
 		with patch(f"{_SDK_MOD}._bronze_create") as m:
 			m.sync.return_value = MetadataResponse(
-				id=1, name="src", created_at="2026-01-01T00:00:00Z"
+				id=1,
+				name="src",
+				description=None,
+				project_id=1,
+				created_at="2026-01-01T00:00:00Z",
 			)
-			result = bronze.create_resource("src")
+			result = bronze.create_resource("src", project_id=1)
 			assert result.id == 1
 			m.sync.assert_called_once()
 
 	def test_list_resources(self, bronze: BronzeLayer):
 		with patch(f"{_SDK_MOD}._bronze_list") as m:
 			m.sync.return_value = [
-				MetadataResponse(id=1, name="a", created_at="2026-01-01T00:00:00Z"),
+				MetadataResponse(
+					id=1,
+					name="a",
+					description=None,
+					project_id=1,
+					created_at="2026-01-01T00:00:00Z",
+				),
 			]
 			assert len(bronze.list_resources()) == 1
 
@@ -234,14 +244,22 @@ class TestBronzeLayer:
 	def test_get_resource(self, bronze: BronzeLayer):
 		with patch(f"{_SDK_MOD}._bronze_get") as m:
 			m.sync.return_value = MetadataResponse(
-				id=1, name="s", created_at="2026-01-01T00:00:00Z"
+				id=1,
+				name="s",
+				description=None,
+				project_id=1,
+				created_at="2026-01-01T00:00:00Z",
 			)
 			assert bronze.get_resource(1).name == "s"
 
 	def test_update_resource(self, bronze: BronzeLayer):
 		with patch(f"{_SDK_MOD}._bronze_update") as m:
 			m.sync.return_value = MetadataResponse(
-				id=1, name="new", created_at="2026-01-01T00:00:00Z"
+				id=1,
+				name="new",
+				description=None,
+				project_id=1,
+				created_at="2026-01-01T00:00:00Z",
 			)
 			assert bronze.update_resource(1, "new").name == "new"
 
@@ -351,15 +369,23 @@ class TestSilverLayer:
 	def test_create_resource(self, silver: SilverLayer):
 		with patch(f"{_SDK_MOD}._silver_create") as m:
 			m.sync.return_value = SilverMetadataResponse(
-				id=1, name="s", created_at="2026-01-01T00:00:00Z"
+				id=1,
+				name="s",
+				description=None,
+				project_id=1,
+				created_at="2026-01-01T00:00:00Z",
 			)
-			assert silver.create_resource("s").id == 1
+			assert silver.create_resource("s", project_id=1).id == 1
 
 	def test_list_resources(self, silver: SilverLayer):
 		with patch(f"{_SDK_MOD}._silver_list") as m:
 			m.sync.return_value = [
 				SilverMetadataResponse(
-					id=1, name="s", created_at="2026-01-01T00:00:00Z"
+					id=1,
+					name="s",
+					description=None,
+					project_id=1,
+					created_at="2026-01-01T00:00:00Z",
 				),
 			]
 			assert len(silver.list_resources()) == 1
@@ -372,14 +398,22 @@ class TestSilverLayer:
 	def test_get_resource(self, silver: SilverLayer):
 		with patch(f"{_SDK_MOD}._silver_get") as m:
 			m.sync.return_value = SilverMetadataResponse(
-				id=1, name="s", created_at="2026-01-01T00:00:00Z"
+				id=1,
+				name="s",
+				description=None,
+				project_id=1,
+				created_at="2026-01-01T00:00:00Z",
 			)
 			assert silver.get_resource(1).name == "s"
 
 	def test_update_resource(self, silver: SilverLayer):
 		with patch(f"{_SDK_MOD}._silver_update") as m:
 			m.sync.return_value = SilverMetadataResponse(
-				id=1, name="new", created_at="2026-01-01T00:00:00Z"
+				id=1,
+				name="new",
+				description=None,
+				project_id=1,
+				created_at="2026-01-01T00:00:00Z",
 			)
 			assert silver.update_resource(1, "new").name == "new"
 
@@ -474,14 +508,24 @@ class TestGoldLayer:
 	def test_create_resource(self, gold: GoldLayer):
 		with patch(f"{_SDK_MOD}._gold_create") as m:
 			m.sync.return_value = GoldMetadataResponse(
-				id=1, name="g", created_at="2026-01-01T00:00:00Z"
+				id=1,
+				name="g",
+				description=None,
+				project_id=1,
+				created_at="2026-01-01T00:00:00Z",
 			)
-			assert gold.create_resource("g").id == 1
+			assert gold.create_resource("g", project_id=1).id == 1
 
 	def test_list_resources(self, gold: GoldLayer):
 		with patch(f"{_SDK_MOD}._gold_list") as m:
 			m.sync.return_value = [
-				GoldMetadataResponse(id=1, name="g", created_at="2026-01-01T00:00:00Z"),
+				GoldMetadataResponse(
+					id=1,
+					name="g",
+					description=None,
+					project_id=1,
+					created_at="2026-01-01T00:00:00Z",
+				),
 			]
 			assert len(gold.list_resources()) == 1
 
@@ -493,14 +537,22 @@ class TestGoldLayer:
 	def test_get_resource(self, gold: GoldLayer):
 		with patch(f"{_SDK_MOD}._gold_get") as m:
 			m.sync.return_value = GoldMetadataResponse(
-				id=1, name="g", created_at="2026-01-01T00:00:00Z"
+				id=1,
+				name="g",
+				description=None,
+				project_id=1,
+				created_at="2026-01-01T00:00:00Z",
 			)
 			assert gold.get_resource(1).name == "g"
 
 	def test_update_resource(self, gold: GoldLayer):
 		with patch(f"{_SDK_MOD}._gold_update") as m:
 			m.sync.return_value = GoldMetadataResponse(
-				id=1, name="new", created_at="2026-01-01T00:00:00Z"
+				id=1,
+				name="new",
+				description=None,
+				project_id=1,
+				created_at="2026-01-01T00:00:00Z",
 			)
 			assert gold.update_resource(1, "new").name == "new"
 
