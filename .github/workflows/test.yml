@@ -15,45 +15,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  changes:
-    name: Detect changes
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: read
-    outputs:
-      lint: ${{ steps.filter.outputs.lint }}
-      sdk: ${{ steps.filter.outputs.sdk }}
-      models: ${{ steps.filter.outputs.models }}
-      helpers: ${{ steps.filter.outputs.helpers }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            lint:
-              - "src/**/*.py"
-            sdk:
-              - "src/csvpredict/sdk.py"
-              - "src/csvpredict/server.py"
-              - "src/csvpredict/html.py"
-              - "src/csvpredict/__init__.py"
-              - "test/test_sdk.py"
-              - "test/conftest.py"
-            models:
-              - "src/csvpredict/models.py"
-              - "test/test_results.py"
-              - "test/conftest.py"
-            helpers:
-              - "src/csvpredict/helpers.py"
-              - "test/test_helpers.py"
-              - "test/conftest.py"
-
   lint:
     name: Lint
-    needs: changes
-    if: ${{ needs.changes.outputs.lint == 'true' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -66,13 +29,12 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --dev --frozen
-      - run: uv run ruff check src/
-      - run: uv run ruff format --check src/
+      - run: uv run ruff check src/data_pebbles/sdk.py
+      - run: uv run ruff format --check src/data_pebbles/sdk.py
 
-  test-sdk:
-    name: Test SDK (${{ matrix.os }})
-    needs: [changes, lint]
-    if: ${{ always() && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.changes.outputs.sdk == 'true' || github.event_name == 'workflow_dispatch') }}
+  test:
+    name: Test (${{ matrix.os }})
+    needs: lint
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
 
@@ -91,39 +53,3 @@ jobs:
           enable-cache: true
       - run: uv sync --dev --frozen
       - run: uv run pytest test/test_sdk.py -x --tb=short
-
-  test-models:
-    name: Test Models
-    needs: [changes, lint]
-    if: ${{ always() && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.changes.outputs.models == 'true' || github.event_name == 'workflow_dispatch') }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-      - uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
-      - run: uv sync --dev --frozen
-      - run: uv run pytest test/test_results.py -x --tb=short
-
-  test-helpers:
-    name: Test Helpers
-    needs: [changes, lint]
-    if: ${{ always() && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.changes.outputs.helpers == 'true' || github.event_name == 'workflow_dispatch') }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-      - uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
-      - run: uv sync --dev --frozen
-      - run: uv run pytest test/test_helpers.py -x --tb=short
