@@ -339,7 +339,7 @@ class SilverLayer:
 			f"/silver/{resource_id}/versions/{version}"
 		)
 		response.raise_for_status()
-		return pl.read_parquet(io.BytesIO(response.content)).lazy()
+		return pl.read_ipc_stream(io.BytesIO(response.content)).lazy()
 
 	def _latest_version(self, resource_id: int) -> int:
 		versions = self.list_versions(resource_id)
@@ -430,7 +430,7 @@ class GoldLayer:
 			f"/gold/{resource_id}/versions/{version}"
 		)
 		response.raise_for_status()
-		return pl.read_parquet(io.BytesIO(response.content)).lazy()
+		return pl.read_ipc_stream(io.BytesIO(response.content)).lazy()
 
 	def _latest_version(self, resource_id: int) -> int:
 		versions = self.list_versions(resource_id)
