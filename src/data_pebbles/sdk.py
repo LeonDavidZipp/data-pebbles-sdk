@@ -89,13 +89,18 @@ from data_pebbles.client.models.create_gold_resource_request import (
 from data_pebbles.client.models.create_project_request import (
 	CreateProjectRequest,
 )
+from data_pebbles.client.models.create_project_response import (
+	CreateProjectResponse,
+)
 from data_pebbles.client.models.create_resource_request import CreateResourceRequest
+from data_pebbles.client.models.create_resource_response import (
+	CreateResourceResponse,
+)
 from data_pebbles.client.models.create_silver_resource_request import (
 	CreateSilverResourceRequest,
 )
 from data_pebbles.client.models.gold_lineage_response import GoldLineageResponse
 from data_pebbles.client.models.gold_metadata_response import GoldMetadataResponse
-from data_pebbles.client.models.http_validation_error import HTTPValidationError
 from data_pebbles.client.models.metadata_response import MetadataResponse
 from data_pebbles.client.models.project_response import ProjectResponse
 from data_pebbles.client.models.silver_lineage_response import SilverLineageResponse
@@ -141,49 +146,51 @@ def _read_bronze_bytes(
 	)
 
 
-def _check_response(result: Any) -> Any:
-	if isinstance(result, HTTPValidationError):
-		errors = result.detail or []
-		messages = [e.msg for e in errors]
-		raise ValueError(f"API validation error: {'; '.join(messages)}")
-	return result
-
-
 class BronzeLayer:
 	def __init__(self, client: AuthenticatedClient | Client) -> None:
 		self._client = client
 
-	def create_resource(self, name: str, project_id: int) -> Any:
-		result = _bronze_create.sync(
+	def create_resource(self, name: str, project_id: int) -> int:
+		result = _bronze_create.sync_detailed(
 			client=self._client,
 			body=CreateResourceRequest(name=name, project_id=project_id),
 		)
-		return _check_response(result)
+		if isinstance(result.parsed, CreateResourceResponse):
+			return result.parsed.resource_id
+		raise ValueError(f"Unexpected response: {result.parsed}")
 
 	def list_resources(self) -> list[MetadataResponse]:
-		return _bronze_list.sync(client=self._client) or []
+		result = _bronze_list.sync_detailed(client=self._client)
+		if isinstance(result.parsed, list):
+			return result.parsed
+		return []
 
 	def get_resource(self, resource_id: int) -> MetadataResponse:
-		result = _bronze_get.sync(resource_id=resource_id, client=self._client)
-		return _check_response(result)
+		result = _bronze_get.sync_detailed(resource_id=resource_id, client=self._client)
+		if isinstance(result.parsed, MetadataResponse):
+			return result.parsed
+		raise ValueError(f"Unexpected response: {result.parsed}")
 
-	def update_resource(self, resource_id: int, name: str) -> MetadataResponse:
-		result = _bronze_update.sync(
+	def update_resource(self, resource_id: int, name: str) -> int:
+		result = _bronze_update.sync_detailed(
 			resource_id=resource_id,
 			client=self._client,
 			body=UpdateResourceRequest(name=name),
 		)
-		return _check_response(result)
+		if isinstance(result.parsed, MetadataResponse):
+			return result.parsed.id
+		raise ValueError(f"Unexpected response: {result.parsed}")
 
-	def delete_resource(self, resource_id: int) -> Any:
-		result = _bronze_delete.sync(resource_id=resource_id, client=self._client)
-		return _check_response(result)
+	def delete_resource(self, resource_id: int) -> None:
+		_bronze_delete.sync_detailed(resource_id=resource_id, client=self._client)
 
 	def list_versions(self, resource_id: int) -> list[VersionResponse]:
-		result = _bronze_list_versions.sync(
+		result = _bronze_list_versions.sync_detailed(
 			resource_id=resource_id, client=self._client
 		)
-		return _check_response(result) or []
+		if isinstance(result.parsed, list):
+			return result.parsed
+		return []
 
 	def upload(
 		self,
@@ -233,17 +240,15 @@ class BronzeLayer:
 		response.raise_for_status()
 		return response.content
 
-	def delete_version(self, resource_id: int, version: int) -> Any:
-		result = _bronze_delete_version.sync(
+	def delete_version(self, resource_id: int, version: int) -> None:
+		_bronze_delete_version.sync_detailed(
 			resource_id=resource_id, version=version, client=self._client
 		)
-		return _check_response(result)
 
-	def activate_version(self, resource_id: int, version: int) -> Any:
-		result = _bronze_activate.sync(
+	def activate_version(self, resource_id: int, version: int) -> None:
+		_bronze_activate.sync_detailed(
 			resource_id=resource_id, version=version, client=self._client
 		)
-		return _check_response(result)
 
 	def _latest_version(self, resource_id: int) -> int:
 		versions = self.list_versions(resource_id)
@@ -256,37 +261,47 @@ class SilverLayer:
 	def __init__(self, client: AuthenticatedClient | Client) -> None:
 		self._client = client
 
-	def create_resource(self, name: str, project_id: int) -> Any:
-		result = _silver_create.sync(
+	def create_resource(self, name: str, project_id: int) -> int:
+		result = _silver_create.sync_detailed(
 			client=self._client,
 			body=CreateSilverResourceRequest(name=name, project_id=project_id),
 		)
-		return _check_response(result)
+		if isinstance(result.parsed, CreateResourceResponse):
+			return result.parsed.resource_id
+		raise ValueError(f"Unexpected response: {result.parsed}")
 
 	def list_resources(self) -> list[SilverMetadataResponse]:
-		return _silver_list.sync(client=self._client) or []
+		result = _silver_list.sync_detailed(client=self._client)
+		if isinstance(result.parsed, list):
+			return result.parsed
+		return []
 
 	def get_resource(self, resource_id: int) -> SilverMetadataResponse:
-		result = _silver_get.sync(resource_id=resource_id, client=self._client)
-		return _check_response(result)
+		result = _silver_get.sync_detailed(resource_id=resource_id, client=self._client)
+		if isinstance(result.parsed, SilverMetadataResponse):
+			return result.parsed
+		raise ValueError(f"Unexpected response: {result.parsed}")
 
-	def update_resource(self, resource_id: int, name: str) -> SilverMetadataResponse:
-		result = _silver_update.sync(
+	def update_resource(self, resource_id: int, name: str) -> int:
+		result = _silver_update.sync_detailed(
 			resource_id=resource_id,
 			client=self._client,
 			body=UpdateSilverResourceRequest(name=name),
 		)
-		return _check_response(result)
+		if isinstance(result.parsed, SilverMetadataResponse):
+			return result.parsed.id
+		raise ValueError(f"Unexpected response: {result.parsed}")
 
-	def delete_resource(self, resource_id: int) -> Any:
-		result = _silver_delete.sync(resource_id=resource_id, client=self._client)
-		return _check_response(result)
+	def delete_resource(self, resource_id: int) -> None:
+		_silver_delete.sync_detailed(resource_id=resource_id, client=self._client)
 
 	def list_versions(self, resource_id: int) -> list[SilverLineageResponse]:
-		result = _silver_list_versions.sync(
+		result = _silver_list_versions.sync_detailed(
 			resource_id=resource_id, client=self._client
 		)
-		return _check_response(result) or []
+		if isinstance(result.parsed, list):
+			return result.parsed
+		return []
 
 	def upload(
 		self,
@@ -337,35 +352,47 @@ class GoldLayer:
 	def __init__(self, client: AuthenticatedClient | Client) -> None:
 		self._client = client
 
-	def create_resource(self, name: str, project_id: int) -> Any:
-		result = _gold_create.sync(
+	def create_resource(self, name: str, project_id: int) -> int:
+		result = _gold_create.sync_detailed(
 			client=self._client,
 			body=CreateGoldResourceRequest(name=name, project_id=project_id),
 		)
-		return _check_response(result)
+		if isinstance(result.parsed, CreateResourceResponse):
+			return result.parsed.resource_id
+		raise ValueError(f"Unexpected response: {result.parsed}")
 
 	def list_resources(self) -> list[GoldMetadataResponse]:
-		return _gold_list.sync(client=self._client) or []
+		result = _gold_list.sync_detailed(client=self._client)
+		if isinstance(result.parsed, list):
+			return result.parsed
+		return []
 
 	def get_resource(self, resource_id: int) -> GoldMetadataResponse:
-		result = _gold_get.sync(resource_id=resource_id, client=self._client)
-		return _check_response(result)
+		result = _gold_get.sync_detailed(resource_id=resource_id, client=self._client)
+		if isinstance(result.parsed, GoldMetadataResponse):
+			return result.parsed
+		raise ValueError(f"Unexpected response: {result.parsed}")
 
-	def update_resource(self, resource_id: int, name: str) -> GoldMetadataResponse:
-		result = _gold_update.sync(
+	def update_resource(self, resource_id: int, name: str) -> int:
+		result = _gold_update.sync_detailed(
 			resource_id=resource_id,
 			client=self._client,
 			body=UpdateGoldResourceRequest(name=name),
 		)
-		return _check_response(result)
+		if isinstance(result.parsed, GoldMetadataResponse):
+			return result.parsed.id
+		raise ValueError(f"Unexpected response: {result.parsed}")
 
-	def delete_resource(self, resource_id: int) -> Any:
-		result = _gold_delete.sync(resource_id=resource_id, client=self._client)
-		return _check_response(result)
+	def delete_resource(self, resource_id: int) -> None:
+		_gold_delete.sync_detailed(resource_id=resource_id, client=self._client)
 
 	def list_versions(self, resource_id: int) -> list[GoldLineageResponse]:
-		result = _gold_list_versions.sync(resource_id=resource_id, client=self._client)
-		return _check_response(result) or []
+		result = _gold_list_versions.sync_detailed(
+			resource_id=resource_id, client=self._client
+		)
+		if isinstance(result.parsed, list):
+			return result.parsed
+		return []
 
 	def upload(
 		self,
@@ -416,27 +443,34 @@ class ProjectsLayer:
 	def __init__(self, client: AuthenticatedClient | Client) -> None:
 		self._client = client
 
-	def create_project(self, name: str, description: str | None = None) -> Any:
-		result = _project_create.sync(
+	def create_project(self, name: str, description: str | None = None) -> int:
+		result = _project_create.sync_detailed(
 			client=self._client,
 			body=CreateProjectRequest(
 				name=name,
 				description=(description if description is not None else None),
 			),
 		)
-		return _check_response(result)
+		if isinstance(result.parsed, CreateProjectResponse):
+			return result.parsed.project_id
+		raise ValueError(f"Unexpected response: {result.parsed}")
 
 	def list_projects(self) -> list[ProjectResponse]:
-		return _project_list.sync(client=self._client) or []
+		result = _project_list.sync_detailed(client=self._client)
+		if isinstance(result.parsed, list):
+			return result.parsed
+		return []
 
 	def get_project(self, project_id: int) -> ProjectResponse:
-		result = _project_get.sync(project_id=project_id, client=self._client)
-		return _check_response(result)
+		result = _project_get.sync_detailed(project_id=project_id, client=self._client)
+		if isinstance(result.parsed, ProjectResponse):
+			return result.parsed
+		raise ValueError(f"Unexpected response: {result.parsed}")
 
 	def update_project(
 		self, project_id: int, name: str | None = None, description: str | None = None
-	) -> Any:
-		result = _project_update.sync(
+	) -> int:
+		result = _project_update.sync_detailed(
 			project_id=project_id,
 			client=self._client,
 			body=UpdateProjectRequest(
@@ -444,11 +478,12 @@ class ProjectsLayer:
 				description=(description if description is not None else None),
 			),
 		)
-		return _check_response(result)
+		if isinstance(result.parsed, ProjectResponse):
+			return result.parsed.id
+		raise ValueError(f"Unexpected response: {result.parsed}")
 
-	def delete_project(self, project_id: int) -> Any:
-		result = _project_delete.sync(project_id=project_id, client=self._client)
-		return _check_response(result)
+	def delete_project(self, project_id: int) -> None:
+		_project_delete.sync_detailed(project_id=project_id, client=self._client)
 
 
 class DataPebbles:
