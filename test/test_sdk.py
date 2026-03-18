@@ -8,24 +8,29 @@ from unittest.mock import MagicMock, patch
 import polars as pl
 import pytest
 
+from data_pebbles.client.models.create_resource_response import CreateResourceResponse
 from data_pebbles.client.models.gold_lineage_response import GoldLineageResponse
 from data_pebbles.client.models.gold_metadata_response import GoldMetadataResponse
-from data_pebbles.client.models.http_validation_error import HTTPValidationError
 from data_pebbles.client.models.metadata_response import MetadataResponse
 from data_pebbles.client.models.silver_lineage_response import SilverLineageResponse
 from data_pebbles.client.models.silver_metadata_response import SilverMetadataResponse
-from data_pebbles.client.models.validation_error import ValidationError
 from data_pebbles.client.models.version_response import VersionResponse
 from data_pebbles.sdk import (
 	BronzeLayer,
 	DataPebbles,
 	GoldLayer,
 	SilverLayer,
-	_check_response,
 	_read_bronze_bytes,
 )
 
 _SDK_MOD = "data_pebbles.sdk"
+
+
+def _response(parsed: Any) -> MagicMock:
+	"""Create a mock Response with a .parsed attribute."""
+	r = MagicMock()
+	r.parsed = parsed
+	return r
 
 
 # ---------------------------------------------------------------------------
@@ -47,6 +52,13 @@ def csv_bytes_semicolon() -> bytes:
 def parquet_bytes() -> bytes:
 	buf = io.BytesIO()
 	pl.DataFrame({"a": [1, 3], "b": [2, 4]}).write_parquet(buf)
+	return buf.getvalue()
+
+
+@pytest.fixture()
+def ipc_bytes() -> bytes:
+	buf = io.BytesIO()
+	pl.DataFrame({"a": [1, 3], "b": [2, 4]}).write_ipc_stream(buf)
 	return buf.getvalue()
 
 
@@ -178,33 +190,6 @@ class TestReadBronzeBytes:
 
 
 # ---------------------------------------------------------------------------
-# _check_response
-# ---------------------------------------------------------------------------
-
-
-class TestCheckResponse:
-	def test_passthrough(self):
-		result = {"id": 1}
-		assert _check_response(result) is result
-
-	def test_validation_error_raises(self):
-		err = HTTPValidationError(
-			detail=[
-				ValidationError(
-					loc=["body", "name"], msg="field required", type_="missing"
-				),
-			]
-		)
-		with pytest.raises(ValueError, match="field required"):
-			_check_response(err)
-
-	def test_validation_error_empty_detail(self):
-		err = HTTPValidationError(detail=[])
-		with pytest.raises(ValueError, match="API validation error"):
-			_check_response(err)
-
-
-# ---------------------------------------------------------------------------
 # BronzeLayer
 # ---------------------------------------------------------------------------
 
@@ -212,67 +197,69 @@ class TestCheckResponse:
 class TestBronzeLayer:
 	def test_create_resource(self, bronze: BronzeLayer):
 		with patch(f"{_SDK_MOD}._bronze_create") as m:
-			m.sync.return_value = MetadataResponse(
-				id=1,
-				name="src",
-				description=None,
-				project_id=1,
-				created_at="2026-01-01T00:00:00Z",
+			m.sync_detailed.return_value = _response(
+				CreateResourceResponse(resource_id=1, message="ok")
 			)
 			result = bronze.create_resource("src", project_id=1)
-			assert result.id == 1
-			m.sync.assert_called_once()
+			assert result == 1
+			m.sync_detailed.assert_called_once()
 
 	def test_list_resources(self, bronze: BronzeLayer):
 		with patch(f"{_SDK_MOD}._bronze_list") as m:
-			m.sync.return_value = [
-				MetadataResponse(
-					id=1,
-					name="a",
-					description=None,
-					project_id=1,
-					created_at="2026-01-01T00:00:00Z",
-				),
-			]
+			m.sync_detailed.return_value = _response(
+				[
+					MetadataResponse(
+						id=1,
+						name="a",
+						description=None,
+						project_id=1,
+						created_at="2026-01-01T00:00:00Z",
+					),
+				]
+			)
 			assert len(bronze.list_resources()) == 1
 
 	def test_list_resources_returns_empty_on_none(self, bronze: BronzeLayer):
 		with patch(f"{_SDK_MOD}._bronze_list") as m:
-			m.sync.return_value = None
+			m.sync_detailed.return_value = _response(None)
 			assert bronze.list_resources() == []
 
 	def test_get_resource(self, bronze: BronzeLayer):
 		with patch(f"{_SDK_MOD}._bronze_get") as m:
-			m.sync.return_value = MetadataResponse(
-				id=1,
-				name="s",
-				description=None,
-				project_id=1,
-				created_at="2026-01-01T00:00:00Z",
+			m.sync_detailed.return_value = _response(
+				MetadataResponse(
+					id=1,
+					name="s",
+					description=None,
+					project_id=1,
+					created_at="2026-01-01T00:00:00Z",
+				)
 			)
 			assert bronze.get_resource(1).name == "s"
 
 	def test_update_resource(self, bronze: BronzeLayer):
 		with patch(f"{_SDK_MOD}._bronze_update") as m:
-			m.sync.return_value = MetadataResponse(
-				id=1,
-				name="new",
-				description=None,
-				project_id=1,
-				created_at="2026-01-01T00:00:00Z",
+			m.sync_detailed.return_value = _response(
+				MetadataResponse(
+					id=1,
+					name="new",
+					description=None,
+					project_id=1,
+					created_at="2026-01-01T00:00:00Z",
+				)
 			)
-			assert bronze.update_resource(1, "new").name == "new"
+			assert bronze.update_resource(1, "new") == 1
 
 	def test_delete_resource(self, bronze: BronzeLayer):
 		with patch(f"{_SDK_MOD}._bronze_delete") as m:
-			m.sync.return_value = {"ok": True}
-			assert bronze.delete_resource(1) == {"ok": True}
+			assert bronze.delete_resource(1) is None
+			m.sync_detailed.assert_called_once()
 
 	def test_list_versions(
 		self, bronze: BronzeLayer, version_response: VersionResponse
 	):
 		with patch(f"{_SDK_MOD}._bronze_list_versions") as m:
-			m.sync.return_value = [version_response]
+			m.sync_detailed.return_value = _response([version_response])
 			assert len(bronze.list_versions(1)) == 1
 
 	def test_upload_with_data(self, bronze: BronzeLayer, mock_httpx: MagicMock):
@@ -320,42 +307,44 @@ class TestBronzeLayer:
 		mock_httpx.get.return_value = resp
 
 		with patch(f"{_SDK_MOD}._bronze_list_versions") as m:
-			m.sync.return_value = [
-				VersionResponse(
-					id=1,
-					resource_id=1,
-					version=1,
-					status="active",
-					s3_key="d.csv",
-					created_at="2026-01-01T00:00:00Z",
-					updated_at="2026-01-01T00:00:00Z",
-				),
-				VersionResponse(
-					id=2,
-					resource_id=1,
-					version=5,
-					status="active",
-					s3_key="d.csv",
-					created_at="2026-01-01T00:00:00Z",
-					updated_at="2026-01-01T00:00:00Z",
-				),
-			]
+			m.sync_detailed.return_value = _response(
+				[
+					VersionResponse(
+						id=1,
+						resource_id=1,
+						version=1,
+						status="active",
+						s3_key="d.csv",
+						created_at="2026-01-01T00:00:00Z",
+						updated_at="2026-01-01T00:00:00Z",
+					),
+					VersionResponse(
+						id=2,
+						resource_id=1,
+						version=5,
+						status="active",
+						s3_key="d.csv",
+						created_at="2026-01-01T00:00:00Z",
+						updated_at="2026-01-01T00:00:00Z",
+					),
+				]
+			)
 			assert bronze.download(1) == b"raw-bytes"
 			mock_httpx.get.assert_called_once_with("/bronze/1/versions/5")
 
 	def test_delete_version(self, bronze: BronzeLayer):
 		with patch(f"{_SDK_MOD}._bronze_delete_version") as m:
-			m.sync.return_value = {"ok": True}
-			assert bronze.delete_version(1, 2) == {"ok": True}
+			assert bronze.delete_version(1, 2) is None
+			m.sync_detailed.assert_called_once()
 
 	def test_activate_version(self, bronze: BronzeLayer):
 		with patch(f"{_SDK_MOD}._bronze_activate") as m:
-			m.sync.return_value = {"ok": True}
-			assert bronze.activate_version(1, 2) == {"ok": True}
+			assert bronze.activate_version(1, 2) is None
+			m.sync_detailed.assert_called_once()
 
 	def test_latest_version_raises_on_empty(self, bronze: BronzeLayer):
 		with patch(f"{_SDK_MOD}._bronze_list_versions") as m:
-			m.sync.return_value = []
+			m.sync_detailed.return_value = _response([])
 			with pytest.raises(ValueError, match="No versions found"):
 				bronze._latest_version(1)
 
@@ -368,65 +357,67 @@ class TestBronzeLayer:
 class TestSilverLayer:
 	def test_create_resource(self, silver: SilverLayer):
 		with patch(f"{_SDK_MOD}._silver_create") as m:
-			m.sync.return_value = SilverMetadataResponse(
-				id=1,
-				name="s",
-				description=None,
-				project_id=1,
-				created_at="2026-01-01T00:00:00Z",
+			m.sync_detailed.return_value = _response(
+				CreateResourceResponse(resource_id=1, message="ok")
 			)
-			assert silver.create_resource("s", project_id=1).id == 1
+			assert silver.create_resource("s", project_id=1) == 1
 
 	def test_list_resources(self, silver: SilverLayer):
 		with patch(f"{_SDK_MOD}._silver_list") as m:
-			m.sync.return_value = [
+			m.sync_detailed.return_value = _response(
+				[
+					SilverMetadataResponse(
+						id=1,
+						name="s",
+						description=None,
+						project_id=1,
+						created_at="2026-01-01T00:00:00Z",
+					),
+				]
+			)
+			assert len(silver.list_resources()) == 1
+
+	def test_list_resources_returns_empty_on_none(self, silver: SilverLayer):
+		with patch(f"{_SDK_MOD}._silver_list") as m:
+			m.sync_detailed.return_value = _response(None)
+			assert silver.list_resources() == []
+
+	def test_get_resource(self, silver: SilverLayer):
+		with patch(f"{_SDK_MOD}._silver_get") as m:
+			m.sync_detailed.return_value = _response(
 				SilverMetadataResponse(
 					id=1,
 					name="s",
 					description=None,
 					project_id=1,
 					created_at="2026-01-01T00:00:00Z",
-				),
-			]
-			assert len(silver.list_resources()) == 1
-
-	def test_list_resources_returns_empty_on_none(self, silver: SilverLayer):
-		with patch(f"{_SDK_MOD}._silver_list") as m:
-			m.sync.return_value = None
-			assert silver.list_resources() == []
-
-	def test_get_resource(self, silver: SilverLayer):
-		with patch(f"{_SDK_MOD}._silver_get") as m:
-			m.sync.return_value = SilverMetadataResponse(
-				id=1,
-				name="s",
-				description=None,
-				project_id=1,
-				created_at="2026-01-01T00:00:00Z",
+				)
 			)
 			assert silver.get_resource(1).name == "s"
 
 	def test_update_resource(self, silver: SilverLayer):
 		with patch(f"{_SDK_MOD}._silver_update") as m:
-			m.sync.return_value = SilverMetadataResponse(
-				id=1,
-				name="new",
-				description=None,
-				project_id=1,
-				created_at="2026-01-01T00:00:00Z",
+			m.sync_detailed.return_value = _response(
+				SilverMetadataResponse(
+					id=1,
+					name="new",
+					description=None,
+					project_id=1,
+					created_at="2026-01-01T00:00:00Z",
+				)
 			)
-			assert silver.update_resource(1, "new").name == "new"
+			assert silver.update_resource(1, "new") == 1
 
 	def test_delete_resource(self, silver: SilverLayer):
 		with patch(f"{_SDK_MOD}._silver_delete") as m:
-			m.sync.return_value = {"ok": True}
-			assert silver.delete_resource(1) == {"ok": True}
+			assert silver.delete_resource(1) is None
+			m.sync_detailed.assert_called_once()
 
 	def test_list_versions(
 		self, silver: SilverLayer, silver_lineage: SilverLineageResponse
 	):
 		with patch(f"{_SDK_MOD}._silver_list_versions") as m:
-			m.sync.return_value = [silver_lineage]
+			m.sync_detailed.return_value = _response([silver_lineage])
 			assert len(silver.list_versions(1)) == 1
 
 	def test_upload_dataframe(self, silver: SilverLayer, mock_httpx: MagicMock):
@@ -453,11 +444,11 @@ class TestSilverLayer:
 		self,
 		silver: SilverLayer,
 		mock_httpx: MagicMock,
-		parquet_bytes: bytes,
+		ipc_bytes: bytes,
 		expected_dict: dict[str, list[int]],
 	):
 		resp = MagicMock()
-		resp.content = parquet_bytes
+		resp.content = ipc_bytes
 		mock_httpx.get.return_value = resp
 
 		lf = silver.download(1, version=2)
@@ -465,36 +456,38 @@ class TestSilverLayer:
 		assert lf.collect().to_dict(as_series=False) == expected_dict
 
 	def test_download_latest_version(
-		self, silver: SilverLayer, mock_httpx: MagicMock, parquet_bytes: bytes
+		self, silver: SilverLayer, mock_httpx: MagicMock, ipc_bytes: bytes
 	):
 		resp = MagicMock()
-		resp.content = parquet_bytes
+		resp.content = ipc_bytes
 		mock_httpx.get.return_value = resp
 
 		with patch(f"{_SDK_MOD}._silver_list_versions") as m:
-			m.sync.return_value = [
-				SilverLineageResponse(
-					id=1,
-					resource_id=1,
-					delta_version=1,
-					from_resource_id=1,
-					created_at="2026-01-01T00:00:00Z",
-				),
-				SilverLineageResponse(
-					id=2,
-					resource_id=1,
-					delta_version=3,
-					from_resource_id=1,
-					created_at="2026-01-01T00:00:00Z",
-				),
-			]
+			m.sync_detailed.return_value = _response(
+				[
+					SilverLineageResponse(
+						id=1,
+						resource_id=1,
+						delta_version=1,
+						from_resource_id=1,
+						created_at="2026-01-01T00:00:00Z",
+					),
+					SilverLineageResponse(
+						id=2,
+						resource_id=1,
+						delta_version=3,
+						from_resource_id=1,
+						created_at="2026-01-01T00:00:00Z",
+					),
+				]
+			)
 			lf = silver.download(1)
 			mock_httpx.get.assert_called_once_with("/silver/1/versions/3")
 			assert isinstance(lf, pl.LazyFrame)
 
 	def test_latest_version_raises_on_empty(self, silver: SilverLayer):
 		with patch(f"{_SDK_MOD}._silver_list_versions") as m:
-			m.sync.return_value = []
+			m.sync_detailed.return_value = _response([])
 			with pytest.raises(ValueError, match="No versions found"):
 				silver._latest_version(1)
 
@@ -507,63 +500,65 @@ class TestSilverLayer:
 class TestGoldLayer:
 	def test_create_resource(self, gold: GoldLayer):
 		with patch(f"{_SDK_MOD}._gold_create") as m:
-			m.sync.return_value = GoldMetadataResponse(
-				id=1,
-				name="g",
-				description=None,
-				project_id=1,
-				created_at="2026-01-01T00:00:00Z",
+			m.sync_detailed.return_value = _response(
+				CreateResourceResponse(resource_id=1, message="ok")
 			)
-			assert gold.create_resource("g", project_id=1).id == 1
+			assert gold.create_resource("g", project_id=1) == 1
 
 	def test_list_resources(self, gold: GoldLayer):
 		with patch(f"{_SDK_MOD}._gold_list") as m:
-			m.sync.return_value = [
+			m.sync_detailed.return_value = _response(
+				[
+					GoldMetadataResponse(
+						id=1,
+						name="g",
+						description=None,
+						project_id=1,
+						created_at="2026-01-01T00:00:00Z",
+					),
+				]
+			)
+			assert len(gold.list_resources()) == 1
+
+	def test_list_resources_returns_empty_on_none(self, gold: GoldLayer):
+		with patch(f"{_SDK_MOD}._gold_list") as m:
+			m.sync_detailed.return_value = _response(None)
+			assert gold.list_resources() == []
+
+	def test_get_resource(self, gold: GoldLayer):
+		with patch(f"{_SDK_MOD}._gold_get") as m:
+			m.sync_detailed.return_value = _response(
 				GoldMetadataResponse(
 					id=1,
 					name="g",
 					description=None,
 					project_id=1,
 					created_at="2026-01-01T00:00:00Z",
-				),
-			]
-			assert len(gold.list_resources()) == 1
-
-	def test_list_resources_returns_empty_on_none(self, gold: GoldLayer):
-		with patch(f"{_SDK_MOD}._gold_list") as m:
-			m.sync.return_value = None
-			assert gold.list_resources() == []
-
-	def test_get_resource(self, gold: GoldLayer):
-		with patch(f"{_SDK_MOD}._gold_get") as m:
-			m.sync.return_value = GoldMetadataResponse(
-				id=1,
-				name="g",
-				description=None,
-				project_id=1,
-				created_at="2026-01-01T00:00:00Z",
+				)
 			)
 			assert gold.get_resource(1).name == "g"
 
 	def test_update_resource(self, gold: GoldLayer):
 		with patch(f"{_SDK_MOD}._gold_update") as m:
-			m.sync.return_value = GoldMetadataResponse(
-				id=1,
-				name="new",
-				description=None,
-				project_id=1,
-				created_at="2026-01-01T00:00:00Z",
+			m.sync_detailed.return_value = _response(
+				GoldMetadataResponse(
+					id=1,
+					name="new",
+					description=None,
+					project_id=1,
+					created_at="2026-01-01T00:00:00Z",
+				)
 			)
-			assert gold.update_resource(1, "new").name == "new"
+			assert gold.update_resource(1, "new") == 1
 
 	def test_delete_resource(self, gold: GoldLayer):
 		with patch(f"{_SDK_MOD}._gold_delete") as m:
-			m.sync.return_value = {"ok": True}
-			assert gold.delete_resource(1) == {"ok": True}
+			assert gold.delete_resource(1) is None
+			m.sync_detailed.assert_called_once()
 
 	def test_list_versions(self, gold: GoldLayer, gold_lineage: GoldLineageResponse):
 		with patch(f"{_SDK_MOD}._gold_list_versions") as m:
-			m.sync.return_value = [gold_lineage]
+			m.sync_detailed.return_value = _response([gold_lineage])
 			assert len(gold.list_versions(1)) == 1
 
 	def test_upload_dataframe(self, gold: GoldLayer, mock_httpx: MagicMock):
@@ -587,45 +582,47 @@ class TestGoldLayer:
 		mock_httpx.post.assert_called_once()
 
 	def test_download_specific_version(
-		self, gold: GoldLayer, mock_httpx: MagicMock, parquet_bytes: bytes
+		self, gold: GoldLayer, mock_httpx: MagicMock, ipc_bytes: bytes
 	):
 		resp = MagicMock()
-		resp.content = parquet_bytes
+		resp.content = ipc_bytes
 		mock_httpx.get.return_value = resp
 
 		lf = gold.download(1, version=2)
 		assert isinstance(lf, pl.LazyFrame)
 
 	def test_download_latest_version(
-		self, gold: GoldLayer, mock_httpx: MagicMock, parquet_bytes: bytes
+		self, gold: GoldLayer, mock_httpx: MagicMock, ipc_bytes: bytes
 	):
 		resp = MagicMock()
-		resp.content = parquet_bytes
+		resp.content = ipc_bytes
 		mock_httpx.get.return_value = resp
 
 		with patch(f"{_SDK_MOD}._gold_list_versions") as m:
-			m.sync.return_value = [
-				GoldLineageResponse(
-					id=1,
-					resource_id=1,
-					delta_version=1,
-					from_resource_id=1,
-					created_at="2026-01-01T00:00:00Z",
-				),
-				GoldLineageResponse(
-					id=2,
-					resource_id=1,
-					delta_version=7,
-					from_resource_id=1,
-					created_at="2026-01-01T00:00:00Z",
-				),
-			]
+			m.sync_detailed.return_value = _response(
+				[
+					GoldLineageResponse(
+						id=1,
+						resource_id=1,
+						delta_version=1,
+						from_resource_id=1,
+						created_at="2026-01-01T00:00:00Z",
+					),
+					GoldLineageResponse(
+						id=2,
+						resource_id=1,
+						delta_version=7,
+						from_resource_id=1,
+						created_at="2026-01-01T00:00:00Z",
+					),
+				]
+			)
 			_ = gold.download(1)
 			mock_httpx.get.assert_called_once_with("/gold/1/versions/7")
 
 	def test_latest_version_raises_on_empty(self, gold: GoldLayer):
 		with patch(f"{_SDK_MOD}._gold_list_versions") as m:
-			m.sync.return_value = []
+			m.sync_detailed.return_value = _response([])
 			with pytest.raises(ValueError, match="No versions found"):
 				gold._latest_version(1)
 
@@ -792,10 +789,10 @@ class TestSilverTransform:
 
 
 class TestGoldTransform:
-	def test_basic_flow(self, dp: DataPebbles, parquet_bytes: bytes):
+	def test_basic_flow(self, dp: DataPebbles, ipc_bytes: bytes):
 		httpx: MagicMock = cast(Any, dp.silver._client).get_httpx_client()
 		resp = MagicMock()
-		resp.content = parquet_bytes
+		resp.content = ipc_bytes
 		httpx.get.return_value = resp
 
 		dp.silver._latest_version = MagicMock(return_value=1)
@@ -813,10 +810,10 @@ class TestGoldTransform:
 		assert call_args.args[0] == 3
 		assert call_args.kwargs["from_resource_ids"] == [1, 2]
 
-	def test_result_is_uploaded(self, dp: DataPebbles, parquet_bytes: bytes):
+	def test_result_is_uploaded(self, dp: DataPebbles, ipc_bytes: bytes):
 		httpx: MagicMock = cast(Any, dp.silver._client).get_httpx_client()
 		resp = MagicMock()
-		resp.content = parquet_bytes
+		resp.content = ipc_bytes
 		httpx.get.return_value = resp
 
 		dp.silver._latest_version = MagicMock(return_value=1)
