@@ -10,6 +10,7 @@ from ...models.body_upload_version_bronze_resource_id_versions_post import (
 	BodyUploadVersionBronzeResourceIdVersionsPost,
 )
 from ...models.http_validation_error import HTTPValidationError
+from ...models.message_response import MessageResponse
 from ...types import Response
 
 
@@ -35,10 +36,11 @@ def _get_kwargs(
 
 def _parse_response(
 	*, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Any | HTTPValidationError | None:
-	if response.status_code == 200:
-		response_200 = response.json()
-		return response_200
+) -> HTTPValidationError | MessageResponse | None:
+	if response.status_code == 201:
+		response_201 = MessageResponse.from_dict(response.json())
+
+		return response_201
 
 	if response.status_code == 422:
 		response_422 = HTTPValidationError.from_dict(response.json())
@@ -53,7 +55,7 @@ def _parse_response(
 
 def _build_response(
 	*, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[Any | HTTPValidationError]:
+) -> Response[HTTPValidationError | MessageResponse]:
 	return Response(
 		status_code=HTTPStatus(response.status_code),
 		content=response.content,
@@ -67,7 +69,7 @@ def sync_detailed(
 	*,
 	client: AuthenticatedClient | Client,
 	body: BodyUploadVersionBronzeResourceIdVersionsPost,
-) -> Response[Any | HTTPValidationError]:
+) -> Response[HTTPValidationError | MessageResponse]:
 	"""Upload Version
 
 	Args:
@@ -79,7 +81,7 @@ def sync_detailed(
 	    httpx.TimeoutException: If the request takes longer than Client.timeout.
 
 	Returns:
-	    Response[Any | HTTPValidationError]
+	    Response[HTTPValidationError | MessageResponse]
 	"""
 
 	kwargs = _get_kwargs(
@@ -99,7 +101,7 @@ def sync(
 	*,
 	client: AuthenticatedClient | Client,
 	body: BodyUploadVersionBronzeResourceIdVersionsPost,
-) -> Any | HTTPValidationError | None:
+) -> HTTPValidationError | MessageResponse | None:
 	"""Upload Version
 
 	Args:
@@ -111,7 +113,7 @@ def sync(
 	    httpx.TimeoutException: If the request takes longer than Client.timeout.
 
 	Returns:
-	    Any | HTTPValidationError
+	    HTTPValidationError | MessageResponse
 	"""
 
 	return sync_detailed(
@@ -126,7 +128,7 @@ async def asyncio_detailed(
 	*,
 	client: AuthenticatedClient | Client,
 	body: BodyUploadVersionBronzeResourceIdVersionsPost,
-) -> Response[Any | HTTPValidationError]:
+) -> Response[HTTPValidationError | MessageResponse]:
 	"""Upload Version
 
 	Args:
@@ -138,7 +140,7 @@ async def asyncio_detailed(
 	    httpx.TimeoutException: If the request takes longer than Client.timeout.
 
 	Returns:
-	    Response[Any | HTTPValidationError]
+	    Response[HTTPValidationError | MessageResponse]
 	"""
 
 	kwargs = _get_kwargs(
@@ -156,7 +158,7 @@ async def asyncio(
 	*,
 	client: AuthenticatedClient | Client,
 	body: BodyUploadVersionBronzeResourceIdVersionsPost,
-) -> Any | HTTPValidationError | None:
+) -> HTTPValidationError | MessageResponse | None:
 	"""Upload Version
 
 	Args:
@@ -168,7 +170,7 @@ async def asyncio(
 	    httpx.TimeoutException: If the request takes longer than Client.timeout.
 
 	Returns:
-	    Any | HTTPValidationError
+	    HTTPValidationError | MessageResponse
 	"""
 
 	return (

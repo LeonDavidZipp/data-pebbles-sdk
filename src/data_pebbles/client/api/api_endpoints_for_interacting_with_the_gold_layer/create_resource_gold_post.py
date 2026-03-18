@@ -6,6 +6,7 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.create_gold_resource_request import CreateGoldResourceRequest
+from ...models.create_resource_response import CreateResourceResponse
 from ...models.http_validation_error import HTTPValidationError
 from ...types import Response
 
@@ -31,10 +32,11 @@ def _get_kwargs(
 
 def _parse_response(
 	*, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Any | HTTPValidationError | None:
-	if response.status_code == 200:
-		response_200 = response.json()
-		return response_200
+) -> CreateResourceResponse | HTTPValidationError | None:
+	if response.status_code == 201:
+		response_201 = CreateResourceResponse.from_dict(response.json())
+
+		return response_201
 
 	if response.status_code == 422:
 		response_422 = HTTPValidationError.from_dict(response.json())
@@ -49,7 +51,7 @@ def _parse_response(
 
 def _build_response(
 	*, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[Any | HTTPValidationError]:
+) -> Response[CreateResourceResponse | HTTPValidationError]:
 	return Response(
 		status_code=HTTPStatus(response.status_code),
 		content=response.content,
@@ -62,7 +64,7 @@ def sync_detailed(
 	*,
 	client: AuthenticatedClient | Client,
 	body: CreateGoldResourceRequest,
-) -> Response[Any | HTTPValidationError]:
+) -> Response[CreateResourceResponse | HTTPValidationError]:
 	"""Create Resource
 
 	Args:
@@ -73,7 +75,7 @@ def sync_detailed(
 	    httpx.TimeoutException: If the request takes longer than Client.timeout.
 
 	Returns:
-	    Response[Any | HTTPValidationError]
+	    Response[CreateResourceResponse | HTTPValidationError]
 	"""
 
 	kwargs = _get_kwargs(
@@ -91,7 +93,7 @@ def sync(
 	*,
 	client: AuthenticatedClient | Client,
 	body: CreateGoldResourceRequest,
-) -> Any | HTTPValidationError | None:
+) -> CreateResourceResponse | HTTPValidationError | None:
 	"""Create Resource
 
 	Args:
@@ -102,7 +104,7 @@ def sync(
 	    httpx.TimeoutException: If the request takes longer than Client.timeout.
 
 	Returns:
-	    Any | HTTPValidationError
+	    CreateResourceResponse | HTTPValidationError
 	"""
 
 	return sync_detailed(
@@ -115,7 +117,7 @@ async def asyncio_detailed(
 	*,
 	client: AuthenticatedClient | Client,
 	body: CreateGoldResourceRequest,
-) -> Response[Any | HTTPValidationError]:
+) -> Response[CreateResourceResponse | HTTPValidationError]:
 	"""Create Resource
 
 	Args:
@@ -126,7 +128,7 @@ async def asyncio_detailed(
 	    httpx.TimeoutException: If the request takes longer than Client.timeout.
 
 	Returns:
-	    Response[Any | HTTPValidationError]
+	    Response[CreateResourceResponse | HTTPValidationError]
 	"""
 
 	kwargs = _get_kwargs(
@@ -142,7 +144,7 @@ async def asyncio(
 	*,
 	client: AuthenticatedClient | Client,
 	body: CreateGoldResourceRequest,
-) -> Any | HTTPValidationError | None:
+) -> CreateResourceResponse | HTTPValidationError | None:
 	"""Create Resource
 
 	Args:
@@ -153,7 +155,7 @@ async def asyncio(
 	    httpx.TimeoutException: If the request takes longer than Client.timeout.
 
 	Returns:
-	    Any | HTTPValidationError
+	    CreateResourceResponse | HTTPValidationError
 	"""
 
 	return (
