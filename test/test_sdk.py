@@ -18,6 +18,7 @@ from data_pebbles.client.models.version_response import VersionResponse
 from data_pebbles.sdk import (
 	BronzeLayer,
 	DataPebbles,
+	FileType,
 	GoldLayer,
 	SilverLayer,
 	_read_bronze_bytes,
@@ -167,7 +168,9 @@ class TestReadBronzeBytes:
 		csv_bytes_semicolon: bytes,
 		expected_dict: dict[str, list[int]],
 	):
-		lf = _read_bronze_bytes(csv_bytes_semicolon, ".csv", csv_separator=";")
+		lf = _read_bronze_bytes(
+			csv_bytes_semicolon, ".csv", read_options={"separator": ";"}
+		)
 		assert lf.collect().to_dict(as_series=False) == expected_dict
 
 	def test_parquet(self, parquet_bytes: bytes, expected_dict: dict[str, list[int]]):
@@ -747,7 +750,9 @@ class TestSilverTransform:
 		dp.bronze.download = MagicMock(return_value=csv_bytes_semicolon)
 		dp.silver.upload = MagicMock()
 
-		@dp.silver_transform(target_id=2, from_bronze_id=1, csv_separator=";")
+		@dp.silver_transform(
+			target_id=2, from_bronze_id=1, read_options={"separator": ";"}
+		)
 		def clean(lf: pl.LazyFrame) -> pl.LazyFrame:
 			return lf
 
@@ -756,6 +761,74 @@ class TestSilverTransform:
 		uploaded = dp.silver.upload.call_args.args[1]
 		assert isinstance(uploaded, pl.LazyFrame)
 		assert uploaded.collect().to_dict(as_series=False) == expected_dict
+
+	def test_file_type_override(
+		self,
+		dp: DataPebbles,
+		csv_bytes: bytes,
+		expected_dict: dict[str, list[int]],
+	):
+		"""file_type overrides the extension from s3_key."""
+		dp.bronze._latest_version = MagicMock(return_value=1)
+		dp.bronze.list_versions = MagicMock(
+			return_value=[
+				VersionResponse(
+					id=1,
+					resource_id=1,
+					version=1,
+					status="active",
+					s3_key="data.unknown",
+					created_at="2026-01-01T00:00:00Z",
+					updated_at="2026-01-01T00:00:00Z",
+				)
+			]
+		)
+		dp.bronze.download = MagicMock(return_value=csv_bytes)
+		dp.silver.upload = MagicMock()
+
+		@dp.silver_transform(
+			target_id=2,
+			from_bronze_id=1,
+			file_type=FileType.CSV,
+		)
+		def clean(lf: pl.LazyFrame) -> pl.LazyFrame:
+			return lf
+
+		clean()
+
+		uploaded = dp.silver.upload.call_args.args[1]
+		assert isinstance(uploaded, pl.LazyFrame)
+		assert uploaded.collect().to_dict(as_series=False) == expected_dict
+
+	def test_file_type_as_string(
+		self,
+		dp: DataPebbles,
+		csv_bytes: bytes,
+	):
+		"""file_type also accepts a plain string."""
+		dp.bronze._latest_version = MagicMock(return_value=1)
+		dp.bronze.list_versions = MagicMock(
+			return_value=[
+				VersionResponse(
+					id=1,
+					resource_id=1,
+					version=1,
+					status="active",
+					s3_key="data.unknown",
+					created_at="2026-01-01T00:00:00Z",
+					updated_at="2026-01-01T00:00:00Z",
+				)
+			]
+		)
+		dp.bronze.download = MagicMock(return_value=csv_bytes)
+		dp.silver.upload = MagicMock()
+
+		@dp.silver_transform(target_id=2, from_bronze_id=1, file_type=".csv")
+		def clean(lf: pl.LazyFrame) -> pl.LazyFrame:
+			return lf
+
+		clean()
+		dp.silver.upload.assert_called_once()
 
 	def test_parquet_input(self, dp: DataPebbles, parquet_bytes: bytes):
 		dp.bronze._latest_version = MagicMock(return_value=1)
