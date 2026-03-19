@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+from abc import ABC, abstractmethod
 from enum import StrEnum
 from functools import wraps
 from pathlib import Path
@@ -224,6 +225,31 @@ class BronzeLayer:
 		self,
 		resource_id: int,
 		*,
+		df: pl.DataFrame | pl.LazyFrame,
+		file_name: str = "data",
+	) -> Any:
+		"""Upload a DataFrame/LazyFrame to a bronze resource as IPC stream.
+
+		The data is serialised via ``write_ipc_stream`` and posted to
+		the same ``/bronze/{resource_id}/versions`` endpoint used by
+		:meth:`upload_file`.
+		"""
+		if isinstance(df, pl.LazyFrame):
+			df = df.collect()
+		buf = df.write_ipc_stream(None)
+		ipc_bytes = buf.getvalue()
+
+		response = self._client.get_httpx_client().post(
+			f"/bronze/{resource_id}/versions",
+			files={"file": (file_name, ipc_bytes, "application/octet-stream")},
+		)
+		response.raise_for_status()
+		return response.json()
+
+	def upload_file(
+		self,
+		resource_id: int,
+		*,
 		file_path: str | Path | None = None,
 		data: bytes | None = None,
 		file_name: str = "upload",
@@ -334,7 +360,7 @@ class SilverLayer:
 	def upload(
 		self,
 		resource_id: int,
-		data: pl.DataFrame | pl.LazyFrame,
+		df: pl.DataFrame | pl.LazyFrame,
 		*,
 		from_resource_id: int,
 	) -> Any:
@@ -342,10 +368,10 @@ class SilverLayer:
 
 		Lineage is tracked via *from_resource_id* (the originating bronze resource).
 		"""
-		if isinstance(data, pl.LazyFrame):
-			data = data.collect()
+		if isinstance(df, pl.LazyFrame):
+			df = df.collect()
 		buf = io.BytesIO()
-		data.write_parquet(buf)
+		df.write_parquet(buf)
 		parquet_bytes = buf.getvalue()
 
 		response = self._client.get_httpx_client().post(
@@ -425,7 +451,7 @@ class GoldLayer:
 	def upload(
 		self,
 		resource_id: int,
-		data: pl.DataFrame | pl.LazyFrame,
+		df: pl.DataFrame | pl.LazyFrame,
 		*,
 		from_resource_ids: list[int],
 	) -> Any:
@@ -433,10 +459,10 @@ class GoldLayer:
 
 		Lineage is tracked via *from_resource_ids* (the originating silver resources).
 		"""
-		if isinstance(data, pl.LazyFrame):
-			data = data.collect()
+		if isinstance(df, pl.LazyFrame):
+			df = df.collect()
 		buf = io.BytesIO()
-		data.write_parquet(buf)
+		df.write_parquet(buf)
 		parquet_bytes = buf.getvalue()
 
 		response = self._client.get_httpx_client().post(
@@ -738,3 +764,21 @@ class DataPebbles:
 			return wrapper
 
 		return decorator
+
+
+class Ingestor(ABC):
+	"""Base class for data ingestors.
+
+	An ingestor reads data from an external source — regardless of that source's
+	structure — and returns it as a Polars LazyFrame or DataFrame.
+	"""
+
+	@abstractmethod
+	def ingest(self) -> pl.DataFrame:
+		"""Ingest data and return a Polars DataFrame."""
+		...
+
+	@abstractmethod
+	def ingest_lazy(self) -> pl.LazyFrame:
+		"""Ingest data and return a Polars LazyFrame."""
+		...
