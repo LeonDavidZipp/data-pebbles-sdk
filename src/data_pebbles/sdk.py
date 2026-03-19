@@ -180,6 +180,15 @@ class BronzeLayer:
 		self._client = client
 
 	def create_resource(self, name: str, project_id: int) -> int:
+		"""Create a new bronze resource.
+
+		Args:
+			name (str): Human-readable name for the resource.
+			project_id (int): ID of the project this resource belongs to.
+
+		Returns:
+			int: The ID of the newly created bronze resource.
+		"""
 		result = _bronze_create.sync_detailed(
 			client=self._client,
 			body=CreateResourceRequest(name=name, project_id=project_id),
@@ -189,18 +198,40 @@ class BronzeLayer:
 		raise ValueError(f"Unexpected response: {result.parsed}")
 
 	def list_resources(self) -> list[MetadataResponse]:
+		"""List all bronze resources.
+
+		Returns:
+			list[MetadataResponse]: Metadata for every bronze resource.
+		"""
 		result = _bronze_list.sync_detailed(client=self._client)
 		if isinstance(result.parsed, list):
 			return result.parsed
 		return []
 
 	def get_resource(self, resource_id: int) -> MetadataResponse:
+		"""Get metadata for a single bronze resource.
+
+		Args:
+			resource_id (int): ID of the bronze resource.
+
+		Returns:
+			MetadataResponse: The resource metadata.
+		"""
 		result = _bronze_get.sync_detailed(resource_id=resource_id, client=self._client)
 		if isinstance(result.parsed, MetadataResponse):
 			return result.parsed
 		raise ValueError(f"Unexpected response: {result.parsed}")
 
 	def update_resource(self, resource_id: int, name: str) -> int:
+		"""Rename a bronze resource.
+
+		Args:
+			resource_id (int): ID of the bronze resource to update.
+			name (str): New name for the resource.
+
+		Returns:
+			int: The ID of the updated resource.
+		"""
 		result = _bronze_update.sync_detailed(
 			resource_id=resource_id,
 			client=self._client,
@@ -211,9 +242,22 @@ class BronzeLayer:
 		raise ValueError(f"Unexpected response: {result.parsed}")
 
 	def delete_resource(self, resource_id: int) -> None:
+		"""Delete a bronze resource and all its versions.
+
+		Args:
+			resource_id (int): ID of the bronze resource to delete.
+		"""
 		_bronze_delete.sync_detailed(resource_id=resource_id, client=self._client)
 
 	def list_versions(self, resource_id: int) -> list[VersionResponse]:
+		"""List all versions of a bronze resource.
+
+		Args:
+			resource_id (int): ID of the bronze resource.
+
+		Returns:
+			list[VersionResponse]: Version metadata for each uploaded version.
+		"""
 		result = _bronze_list_versions.sync_detailed(
 			resource_id=resource_id, client=self._client
 		)
@@ -233,6 +277,16 @@ class BronzeLayer:
 		The data is serialised via ``write_ipc_stream`` and posted to
 		the same ``/bronze/{resource_id}/versions`` endpoint used by
 		:meth:`upload_file`.
+
+		Args:
+			resource_id (int): ID of the bronze resource to upload to.
+			df (pl.DataFrame | pl.LazyFrame): The data to upload. A
+				LazyFrame is collected before serialisation.
+			file_name (str): Name stored alongside the upload. Defaults
+				to ``"data"``.
+
+		Returns:
+			dict[str, Any]: JSON response from the server.
 		"""
 		if isinstance(df, pl.LazyFrame):
 			df = df.collect()
@@ -256,9 +310,21 @@ class BronzeLayer:
 	) -> Any:
 		"""Upload a file to a bronze resource.
 
-		Provide either ``file_path`` or raw ``data`` bytes.
+		Provide either *file_path* or raw *data* bytes.
 		Only files with extensions in ``ALLOWED_EXTENSIONS``
 		(.csv, .parquet, .json, .xlsx) are accepted.
+
+		Args:
+			resource_id (int): ID of the bronze resource to upload to.
+			file_path (str | Path | None): Path to a local file. If given,
+				*data* and *file_name* are derived from it.
+			data (bytes | None): Raw file bytes. Required when *file_path*
+				is not provided.
+			file_name (str): Name (with extension) to store alongside the
+				upload. Defaults to ``"upload"``.
+
+		Returns:
+			dict[str, Any]: JSON response from the server.
 		"""
 		if file_path is not None:
 			path = Path(file_path)
@@ -284,7 +350,13 @@ class BronzeLayer:
 	def download(self, resource_id: int, *, version: int | None = None) -> bytes:
 		"""Download a bronze version as raw bytes.
 
-		If *version* is ``None``, the latest version is used.
+		Args:
+			resource_id (int): ID of the bronze resource.
+			version (int | None): Specific version to download. If ``None``,
+				the latest version is used.
+
+		Returns:
+			bytes: The raw file content.
 		"""
 		if version is None:
 			version = self._latest_version(resource_id)
@@ -295,11 +367,23 @@ class BronzeLayer:
 		return response.content
 
 	def delete_version(self, resource_id: int, version: int) -> None:
+		"""Delete a specific version of a bronze resource.
+
+		Args:
+			resource_id (int): ID of the bronze resource.
+			version (int): Version number to delete.
+		"""
 		_bronze_delete_version.sync_detailed(
 			resource_id=resource_id, version=version, client=self._client
 		)
 
 	def activate_version(self, resource_id: int, version: int) -> None:
+		"""Activate a specific version of a bronze resource.
+
+		Args:
+			resource_id (int): ID of the bronze resource.
+			version (int): Version number to activate.
+		"""
 		_bronze_activate.sync_detailed(
 			resource_id=resource_id, version=version, client=self._client
 		)
@@ -316,6 +400,15 @@ class SilverLayer:
 		self._client = client
 
 	def create_resource(self, name: str, project_id: int) -> int:
+		"""Create a new silver resource.
+
+		Args:
+			name (str): Human-readable name for the resource.
+			project_id (int): ID of the project this resource belongs to.
+
+		Returns:
+			int: The ID of the newly created silver resource.
+		"""
 		result = _silver_create.sync_detailed(
 			client=self._client,
 			body=CreateSilverResourceRequest(name=name, project_id=project_id),
@@ -325,18 +418,40 @@ class SilverLayer:
 		raise ValueError(f"Unexpected response: {result.parsed}")
 
 	def list_resources(self) -> list[SilverMetadataResponse]:
+		"""List all silver resources.
+
+		Returns:
+			list[SilverMetadataResponse]: Metadata for every silver resource.
+		"""
 		result = _silver_list.sync_detailed(client=self._client)
 		if isinstance(result.parsed, list):
 			return result.parsed
 		return []
 
 	def get_resource(self, resource_id: int) -> SilverMetadataResponse:
+		"""Get metadata for a single silver resource.
+
+		Args:
+			resource_id (int): ID of the silver resource.
+
+		Returns:
+			SilverMetadataResponse: The resource metadata.
+		"""
 		result = _silver_get.sync_detailed(resource_id=resource_id, client=self._client)
 		if isinstance(result.parsed, SilverMetadataResponse):
 			return result.parsed
 		raise ValueError(f"Unexpected response: {result.parsed}")
 
 	def update_resource(self, resource_id: int, name: str) -> int:
+		"""Rename a silver resource.
+
+		Args:
+			resource_id (int): ID of the silver resource to update.
+			name (str): New name for the resource.
+
+		Returns:
+			int: The ID of the updated resource.
+		"""
 		result = _silver_update.sync_detailed(
 			resource_id=resource_id,
 			client=self._client,
@@ -347,9 +462,22 @@ class SilverLayer:
 		raise ValueError(f"Unexpected response: {result.parsed}")
 
 	def delete_resource(self, resource_id: int) -> None:
+		"""Delete a silver resource and all its versions.
+
+		Args:
+			resource_id (int): ID of the silver resource to delete.
+		"""
 		_silver_delete.sync_detailed(resource_id=resource_id, client=self._client)
 
 	def list_versions(self, resource_id: int) -> list[SilverLineageResponse]:
+		"""List all versions of a silver resource.
+
+		Args:
+			resource_id (int): ID of the silver resource.
+
+		Returns:
+			list[SilverLineageResponse]: Lineage metadata for each version.
+		"""
 		result = _silver_list_versions.sync_detailed(
 			resource_id=resource_id, client=self._client
 		)
@@ -366,7 +494,18 @@ class SilverLayer:
 	) -> Any:
 		"""Upload a DataFrame/LazyFrame to a silver resource.
 
-		Lineage is tracked via *from_resource_id* (the originating bronze resource).
+		Lineage is tracked via *from_resource_id* (the originating bronze
+		resource).
+
+		Args:
+			resource_id (int): ID of the silver resource to upload to.
+			df (pl.DataFrame | pl.LazyFrame): The data to upload. A
+				LazyFrame is collected before serialisation.
+			from_resource_id (int): ID of the originating bronze resource
+				(recorded for lineage).
+
+		Returns:
+			dict[str, Any]: JSON response from the server.
 		"""
 		if isinstance(df, pl.LazyFrame):
 			df = df.collect()
@@ -385,7 +524,13 @@ class SilverLayer:
 	def download(self, resource_id: int, *, version: int | None = None) -> pl.LazyFrame:
 		"""Download a silver version as a LazyFrame.
 
-		If *version* is ``None``, the latest version is used.
+		Args:
+			resource_id (int): ID of the silver resource.
+			version (int | None): Specific version to download. If ``None``,
+				the latest version is used.
+
+		Returns:
+			pl.LazyFrame: The downloaded data.
 		"""
 		if version is None:
 			version = self._latest_version(resource_id)
@@ -407,6 +552,15 @@ class GoldLayer:
 		self._client = client
 
 	def create_resource(self, name: str, project_id: int) -> int:
+		"""Create a new gold resource.
+
+		Args:
+			name (str): Human-readable name for the resource.
+			project_id (int): ID of the project this resource belongs to.
+
+		Returns:
+			int: The ID of the newly created gold resource.
+		"""
 		result = _gold_create.sync_detailed(
 			client=self._client,
 			body=CreateGoldResourceRequest(name=name, project_id=project_id),
@@ -416,18 +570,40 @@ class GoldLayer:
 		raise ValueError(f"Unexpected response: {result.parsed}")
 
 	def list_resources(self) -> list[GoldMetadataResponse]:
+		"""List all gold resources.
+
+		Returns:
+			list[GoldMetadataResponse]: Metadata for every gold resource.
+		"""
 		result = _gold_list.sync_detailed(client=self._client)
 		if isinstance(result.parsed, list):
 			return result.parsed
 		return []
 
 	def get_resource(self, resource_id: int) -> GoldMetadataResponse:
+		"""Get metadata for a single gold resource.
+
+		Args:
+			resource_id (int): ID of the gold resource.
+
+		Returns:
+			GoldMetadataResponse: The resource metadata.
+		"""
 		result = _gold_get.sync_detailed(resource_id=resource_id, client=self._client)
 		if isinstance(result.parsed, GoldMetadataResponse):
 			return result.parsed
 		raise ValueError(f"Unexpected response: {result.parsed}")
 
 	def update_resource(self, resource_id: int, name: str) -> int:
+		"""Rename a gold resource.
+
+		Args:
+			resource_id (int): ID of the gold resource to update.
+			name (str): New name for the resource.
+
+		Returns:
+			int: The ID of the updated resource.
+		"""
 		result = _gold_update.sync_detailed(
 			resource_id=resource_id,
 			client=self._client,
@@ -438,9 +614,22 @@ class GoldLayer:
 		raise ValueError(f"Unexpected response: {result.parsed}")
 
 	def delete_resource(self, resource_id: int) -> None:
+		"""Delete a gold resource and all its versions.
+
+		Args:
+			resource_id (int): ID of the gold resource to delete.
+		"""
 		_gold_delete.sync_detailed(resource_id=resource_id, client=self._client)
 
 	def list_versions(self, resource_id: int) -> list[GoldLineageResponse]:
+		"""List all versions of a gold resource.
+
+		Args:
+			resource_id (int): ID of the gold resource.
+
+		Returns:
+			list[GoldLineageResponse]: Lineage metadata for each version.
+		"""
 		result = _gold_list_versions.sync_detailed(
 			resource_id=resource_id, client=self._client
 		)
@@ -457,7 +646,18 @@ class GoldLayer:
 	) -> Any:
 		"""Upload a DataFrame/LazyFrame to a gold resource.
 
-		Lineage is tracked via *from_resource_ids* (the originating silver resources).
+		Lineage is tracked via *from_resource_ids* (the originating silver
+		resources).
+
+		Args:
+			resource_id (int): ID of the gold resource to upload to.
+			df (pl.DataFrame | pl.LazyFrame): The data to upload. A
+				LazyFrame is collected before serialisation.
+			from_resource_ids (list[int]): IDs of the originating silver
+				resources (recorded for lineage).
+
+		Returns:
+			dict[str, Any]: JSON response from the server.
 		"""
 		if isinstance(df, pl.LazyFrame):
 			df = df.collect()
@@ -476,7 +676,13 @@ class GoldLayer:
 	def download(self, resource_id: int, *, version: int | None = None) -> pl.LazyFrame:
 		"""Download a gold version as a LazyFrame.
 
-		If *version* is ``None``, the latest version is used.
+		Args:
+			resource_id (int): ID of the gold resource.
+			version (int | None): Specific version to download. If ``None``,
+				the latest version is used.
+
+		Returns:
+			pl.LazyFrame: The downloaded data.
 		"""
 		if version is None:
 			version = self._latest_version(resource_id)
@@ -498,6 +704,15 @@ class ProjectsLayer:
 		self._client = client
 
 	def create_project(self, name: str, description: str | None = None) -> int:
+		"""Create a new project.
+
+		Args:
+			name (str): Human-readable name for the project.
+			description (str | None): Optional description of the project.
+
+		Returns:
+			int: The ID of the newly created project.
+		"""
 		result = _project_create.sync_detailed(
 			client=self._client,
 			body=CreateProjectRequest(
@@ -510,12 +725,25 @@ class ProjectsLayer:
 		raise ValueError(f"Unexpected response: {result.parsed}")
 
 	def list_projects(self) -> list[ProjectResponse]:
+		"""List all projects.
+
+		Returns:
+			list[ProjectResponse]: Metadata for every project.
+		"""
 		result = _project_list.sync_detailed(client=self._client)
 		if isinstance(result.parsed, list):
 			return result.parsed
 		return []
 
 	def get_project(self, project_id: int) -> ProjectResponse:
+		"""Get metadata for a single project.
+
+		Args:
+			project_id (int): ID of the project.
+
+		Returns:
+			ProjectResponse: The project metadata.
+		"""
 		result = _project_get.sync_detailed(project_id=project_id, client=self._client)
 		if isinstance(result.parsed, ProjectResponse):
 			return result.parsed
@@ -524,6 +752,17 @@ class ProjectsLayer:
 	def update_project(
 		self, project_id: int, name: str | None = None, description: str | None = None
 	) -> int:
+		"""Update a project's name and/or description.
+
+		Args:
+			project_id (int): ID of the project to update.
+			name (str | None): New name, or ``None`` to keep the current one.
+			description (str | None): New description, or ``None`` to keep
+				the current one.
+
+		Returns:
+			int: The ID of the updated project.
+		"""
 		result = _project_update.sync_detailed(
 			project_id=project_id,
 			client=self._client,
@@ -537,6 +776,11 @@ class ProjectsLayer:
 		raise ValueError(f"Unexpected response: {result.parsed}")
 
 	def delete_project(self, project_id: int) -> None:
+		"""Delete a project.
+
+		Args:
+			project_id (int): ID of the project to delete.
+		"""
 		_project_delete.sync_detailed(project_id=project_id, client=self._client)
 
 
@@ -643,16 +887,21 @@ class DataPebbles:
 		originating bronze resource.
 
 		Args:
-			target_id: ID of the silver resource to upload the result to.
-			from_bronze_id: ID of the bronze resource to download input
+			target_id (int): ID of the silver resource to upload the result to.
+			from_bronze_id (int): ID of the bronze resource to download input
 				from. Also recorded as the lineage origin.
-			source_id: Optional ID to record as the lineage origin
-				instead of *from_bronze_id*.
-			file_type: Override the file extension used to choose the
-				reader (a :class:`FileType` value or a string like
-				``".csv"``).  ``None`` means auto-detect from the s3 key.
-			read_options: Extra keyword arguments forwarded to the Polars
-				reader function.
+			source_id (int | None): Optional ID to record as the lineage
+				origin instead of *from_bronze_id*.
+			file_type (FileType | str | None): Override the file extension
+				used to choose the reader (a :class:`FileType` value or a
+				string like ``".csv"``).  ``None`` means auto-detect from the
+				s3 key.
+			read_options (dict[str, Any] | None): Extra keyword arguments
+				forwarded to the Polars reader function.
+
+		Returns:
+			Callable: A decorator that wraps a
+				``(pl.LazyFrame) -> pl.DataFrame | pl.LazyFrame`` function.
 
 		The resulting wrapper accepts an optional ``version`` keyword
 		argument to pin a specific bronze version (defaults to latest).
@@ -726,6 +975,13 @@ class DataPebbles:
 			target_id (int): ID of the gold resource to upload the result to.
 			from_silver_ids (list[int]): List of silver resource IDs to
 				download as inputs. Also recorded as the lineage origins.
+			source_ids (list[int] | None): Optional list of IDs to record
+				as the lineage origins instead of *from_silver_ids*.
+
+		Returns:
+			Callable: A decorator that wraps a
+				``(dict[int, pl.LazyFrame]) -> pl.DataFrame | pl.LazyFrame``
+				function.
 
 		The decorated function receives
 		``dict[int, pl.LazyFrame]`` keyed by silver resource ID
