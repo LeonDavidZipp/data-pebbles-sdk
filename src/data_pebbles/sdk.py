@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+from enum import StrEnum
 from functools import wraps
 from pathlib import Path
 from typing import Any, Callable
@@ -117,33 +118,60 @@ from data_pebbles.client.models.update_silver_resource_request import (
 )
 from data_pebbles.client.models.version_response import VersionResponse
 
-ALLOWED_EXTENSIONS = {".csv", ".parquet", ".json", ".xlsx"}
+
+class FileType(StrEnum):
+	"""Supported bronze file types.
+
+	Each value corresponds to a file extension and maps to a Polars reader:
+
+	- ``CSV``  → ``pl.read_csv``
+	- ``PARQUET`` → ``pl.read_parquet``
+	- ``JSON`` → ``pl.read_json``
+	- ``EXCEL`` → ``pl.read_excel``
+	"""
+
+	CSV = ".csv"
+	PARQUET = ".parquet"
+	JSON = ".json"
+	EXCEL = ".xlsx"
+
+
+ALLOWED_EXTENSIONS = {ft.value for ft in FileType}
+
+_READERS: dict[str, Callable[..., pl.DataFrame]] = {
+	FileType.CSV: pl.read_csv,
+	FileType.PARQUET: pl.read_parquet,
+	FileType.JSON: pl.read_json,
+	FileType.EXCEL: pl.read_excel,
+}
 
 
 def _read_bronze_bytes(
-	data: bytes, ext: str, *, csv_separator: str = ","
+	data: bytes,
+	ext: str,
+	*,
+	read_options: dict[str, Any] | None = None,
 ) -> pl.LazyFrame:
-	"""Parse raw bronze bytes into a LazyFrame based on file extension."""
+	"""Parse raw bronze bytes into a LazyFrame based on file extension.
+
+	*read_options* are forwarded as keyword arguments to the corresponding
+	Polars reader function (e.g. ``{"separator": ";"}`` for CSV).
+	"""
+	reader = _READERS.get(ext)
+	if reader is None:
+		raise ValueError(
+			f"Unsupported file extension {ext!r}. "
+			f"Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
+		)
 	buf = io.BytesIO(data)
 	try:
-		if ext == ".csv":
-			return pl.read_csv(buf, separator=csv_separator).lazy()
-		if ext == ".parquet":
-			return pl.read_parquet(buf).lazy()
-		if ext == ".json":
-			return pl.read_json(buf).lazy()
-		if ext == ".xlsx":
-			return pl.read_excel(buf).lazy()
+		return reader(buf, **(read_options or {})).lazy()
 	except Exception as exc:
 		raise ValueError(
 			f"Failed to parse bronze data as {ext!r}. "
 			f"Uploaded files must contain valid tabular data. "
 			f"Original error: {exc}"
 		) from exc
-	raise ValueError(
-		f"Unsupported file extension {ext!r}. "
-		f"Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
-	)
 
 
 class BronzeLayer:
@@ -563,28 +591,42 @@ class DataPebbles:
 		*,
 		target_id: int,
 		from_bronze_id: int,
-		csv_separator: str = ",",
 		source_id: int | None = None,
+		file_type: FileType | str | None = None,
+		read_options: dict[str, Any] | None = None,
 	) -> Callable[
 		[Callable[[pl.LazyFrame], pl.DataFrame | pl.LazyFrame]],
 		Callable[..., None],
 	]:
 		"""Decorator: bronze → silver with automatic lineage tracking.
 
-		The decorator downloads the bronze data, auto-parses it into a
-		``LazyFrame`` based on the original file extension (from the
-		``s3_key``), and passes it to the decorated function.
+		The decorator downloads the bronze data, parses it into a
+		``LazyFrame``, and passes it to the decorated function.
+
+		By default the file extension is detected from the ``s3_key`` of
+		the bronze version.  Pass *file_type* to override (e.g. when the
+		key has no extension or the wrong one).
+
+		*read_options* are forwarded as keyword arguments to the
+		corresponding Polars reader (``pl.read_csv``, ``pl.read_parquet``,
+		etc.).  For example ``{"separator": ";"}`` for semicolon-delimited
+		CSVs, or ``{"schema": {"id": pl.Int32}}`` for Parquet.
 
 		The result is serialised to Parquet and uploaded to the
 		*target_id* silver resource, recording *from_bronze_id* as the
 		originating bronze resource.
 
 		Args:
-			target_id (int): ID of the silver resource to upload the result to.
-			from_bronze_id (int): ID of the bronze resource to download
-				input from. Also recorded as the lineage origin.
-			csv_separator (str): Separator used when parsing CSV files.
-				Defaults to ``","``.
+			target_id: ID of the silver resource to upload the result to.
+			from_bronze_id: ID of the bronze resource to download input
+				from. Also recorded as the lineage origin.
+			source_id: Optional ID to record as the lineage origin
+				instead of *from_bronze_id*.
+			file_type: Override the file extension used to choose the
+				reader (a :class:`FileType` value or a string like
+				``".csv"``).  ``None`` means auto-detect from the s3 key.
+			read_options: Extra keyword arguments forwarded to the Polars
+				reader function.
 
 		The resulting wrapper accepts an optional ``version`` keyword
 		argument to pin a specific bronze version (defaults to latest).
@@ -596,9 +638,12 @@ class DataPebbles:
 					return lf.filter(pl.col("x") > 0)
 
 
-				# With a custom CSV separator
+				# Override file type and pass reader options
 				@dp.silver_transform(
-					target_id=3, from_bronze_id=2, csv_separator=";"
+					target_id=3,
+					from_bronze_id=2,
+					file_type=FileType.CSV,
+					read_options={"separator": ";", "has_header": True},
 				)
 				def clean_eu(lf: pl.LazyFrame) -> pl.LazyFrame:
 					return lf.filter(pl.col("x") > 0)
@@ -616,10 +661,15 @@ class DataPebbles:
 
 				versions = self.bronze.list_versions(from_bronze_id)
 				ver = next(v for v in versions if v.version == version_)
-				ext = Path(ver.s3_key).suffix.lower()
+
+				ext = (
+					str(file_type)
+					if file_type is not None
+					else Path(ver.s3_key).suffix.lower()
+				)
 
 				bronze_data = self.bronze.download(from_bronze_id, version=version_)
-				lf = _read_bronze_bytes(bronze_data, ext, csv_separator=csv_separator)
+				lf = _read_bronze_bytes(bronze_data, ext, read_options=read_options)
 				result = func(lf)
 				# Allow explicit override of the recorded source id (lineage)
 				record_from_id = source_id if source_id is not None else from_bronze_id
