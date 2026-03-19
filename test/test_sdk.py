@@ -12,6 +12,7 @@ from data_pebbles.client.models.create_resource_response import CreateResourceRe
 from data_pebbles.client.models.gold_lineage_response import GoldLineageResponse
 from data_pebbles.client.models.gold_metadata_response import GoldMetadataResponse
 from data_pebbles.client.models.metadata_response import MetadataResponse
+from data_pebbles.client.models.project_response import ProjectResponse
 from data_pebbles.client.models.silver_lineage_response import SilverLineageResponse
 from data_pebbles.client.models.silver_metadata_response import SilverMetadataResponse
 from data_pebbles.client.models.version_response import VersionResponse
@@ -23,6 +24,7 @@ from data_pebbles.sdk import (
 	SilverLayer,
 	_read_bronze_bytes,
 )
+from data_pebbles.sdk import ProjectsLayer as ProjectsLayer
 
 _SDK_MOD = "data_pebbles.sdk"
 
@@ -144,6 +146,11 @@ def silver(mock_client: MagicMock) -> SilverLayer:
 @pytest.fixture()
 def gold(mock_client: MagicMock) -> GoldLayer:
 	return GoldLayer(mock_client)
+
+
+@pytest.fixture()
+def projects(mock_client: MagicMock) -> ProjectsLayer:
+	return ProjectsLayer(mock_client)
 
 
 @pytest.fixture()
@@ -270,7 +277,7 @@ class TestBronzeLayer:
 		resp.json.return_value = {"version": 1}
 		mock_httpx.post.return_value = resp
 
-		result = bronze.upload(1, data=b"a,b\n1,2", file_name="data.csv")
+		result = bronze.upload_file(1, data=b"a,b\n1,2", file_name="data.csv")
 		assert result == {"version": 1}
 		mock_httpx.post.assert_called_once()
 
@@ -284,15 +291,55 @@ class TestBronzeLayer:
 		resp.json.return_value = {"version": 1}
 		mock_httpx.post.return_value = resp
 
-		assert bronze.upload(1, file_path=csv_file) == {"version": 1}
+		assert bronze.upload_file(1, file_path=csv_file) == {"version": 1}
 
 	def test_upload_rejects_unsupported_extension(self, bronze: BronzeLayer):
 		with pytest.raises(ValueError, match="Unsupported file extension"):
-			bronze.upload(1, data=b"data", file_name="file.txt")
+			bronze.upload_file(1, data=b"data", file_name="file.txt")
 
 	def test_upload_requires_file_path_or_data(self, bronze: BronzeLayer):
 		with pytest.raises(ValueError, match="Provide either"):
-			bronze.upload(1)
+			bronze.upload_file(1)
+
+	def test_upload_df_dataframe(self, bronze: BronzeLayer, mock_httpx: MagicMock):
+		resp = MagicMock()
+		resp.json.return_value = {"version": 1}
+		mock_httpx.post.return_value = resp
+
+		df = pl.DataFrame({"x": [1, 2]})
+		result = bronze.upload(1, df=df)
+		assert result == {"version": 1}
+		mock_httpx.post.assert_called_once()
+		_, kwargs = mock_httpx.post.call_args
+		file_name, file_bytes, mime = kwargs["files"]["file"]
+		assert file_name == "data"
+		assert mime == "application/octet-stream"
+		# Verify the bytes are valid IPC stream
+		round_tripped = pl.read_ipc_stream(io.BytesIO(file_bytes))
+		assert round_tripped.to_dict(as_series=False) == {"x": [1, 2]}
+
+	def test_upload_df_lazyframe(self, bronze: BronzeLayer, mock_httpx: MagicMock):
+		resp = MagicMock()
+		resp.json.return_value = {"version": 1}
+		mock_httpx.post.return_value = resp
+
+		lf = pl.DataFrame({"x": [1, 2]}).lazy()
+		result = bronze.upload(1, df=lf)
+		assert result == {"version": 1}
+		mock_httpx.post.assert_called_once()
+
+	def test_upload_df_custom_file_name(
+		self, bronze: BronzeLayer, mock_httpx: MagicMock
+	):
+		resp = MagicMock()
+		resp.json.return_value = {"version": 1}
+		mock_httpx.post.return_value = resp
+
+		df = pl.DataFrame({"x": [1]})
+		bronze.upload(1, df=df, file_name="custom_name")
+		_, kwargs = mock_httpx.post.call_args
+		file_name, _, _ = kwargs["files"]["file"]
+		assert file_name == "custom_name"
 
 	def test_download_specific_version(
 		self, bronze: BronzeLayer, mock_httpx: MagicMock
@@ -902,3 +949,216 @@ class TestGoldTransform:
 
 		uploaded = dp.gold.upload.call_args.args[1]
 		assert uploaded.equals(expected)
+
+
+# ---------------------------------------------------------------------------
+# FileType enum
+# ---------------------------------------------------------------------------
+
+
+class TestFileType:
+	def test_values(self):
+		assert FileType.CSV == ".csv"
+		assert FileType.PARQUET == ".parquet"
+		assert FileType.JSON == ".json"
+		assert FileType.EXCEL == ".xlsx"
+
+	def test_str_comparison(self):
+		assert FileType.CSV == ".csv"
+		assert ".parquet" == FileType.PARQUET
+
+	def test_members(self):
+		assert set(FileType) == {
+			FileType.CSV,
+			FileType.PARQUET,
+			FileType.JSON,
+			FileType.EXCEL,
+		}
+
+
+# ---------------------------------------------------------------------------
+# silver_transform — source_id override
+# ---------------------------------------------------------------------------
+
+
+class TestSilverTransformSourceId:
+	def test_source_id_override(self, dp: DataPebbles, csv_bytes: bytes):
+		"""When source_id is given, it replaces from_bronze_id in lineage."""
+		dp.bronze._latest_version = MagicMock(return_value=1)
+		dp.bronze.list_versions = MagicMock(
+			return_value=[
+				VersionResponse(
+					id=1,
+					resource_id=1,
+					version=1,
+					status="active",
+					s3_key="data.csv",
+					created_at="2026-01-01T00:00:00Z",
+					updated_at="2026-01-01T00:00:00Z",
+				)
+			]
+		)
+		dp.bronze.download = MagicMock(return_value=csv_bytes)
+		dp.silver.upload = MagicMock()
+
+		@dp.silver_transform(target_id=2, from_bronze_id=1, source_id=99)
+		def clean(lf: pl.LazyFrame) -> pl.LazyFrame:
+			return lf
+
+		clean()
+
+		assert dp.silver.upload.call_args.kwargs["from_resource_id"] == 99
+
+	def test_default_source_id_is_from_bronze_id(
+		self, dp: DataPebbles, csv_bytes: bytes
+	):
+		"""Without source_id, from_bronze_id is recorded as lineage."""
+		dp.bronze._latest_version = MagicMock(return_value=1)
+		dp.bronze.list_versions = MagicMock(
+			return_value=[
+				VersionResponse(
+					id=1,
+					resource_id=1,
+					version=1,
+					status="active",
+					s3_key="data.csv",
+					created_at="2026-01-01T00:00:00Z",
+					updated_at="2026-01-01T00:00:00Z",
+				)
+			]
+		)
+		dp.bronze.download = MagicMock(return_value=csv_bytes)
+		dp.silver.upload = MagicMock()
+
+		@dp.silver_transform(target_id=2, from_bronze_id=7)
+		def clean(lf: pl.LazyFrame) -> pl.LazyFrame:
+			return lf
+
+		clean()
+
+		assert dp.silver.upload.call_args.kwargs["from_resource_id"] == 7
+
+
+# ---------------------------------------------------------------------------
+# gold_transform — source_ids override
+# ---------------------------------------------------------------------------
+
+
+class TestGoldTransformSourceIds:
+	def test_source_ids_override(self, dp: DataPebbles, ipc_bytes: bytes):
+		"""When source_ids is given, it replaces from_silver_ids in lineage."""
+		httpx: MagicMock = cast(Any, dp.silver._client).get_httpx_client()
+		resp = MagicMock()
+		resp.content = ipc_bytes
+		httpx.get.return_value = resp
+
+		dp.silver._latest_version = MagicMock(return_value=1)
+		dp.gold.upload = MagicMock()
+
+		@dp.gold_transform(target_id=3, from_silver_ids=[1], source_ids=[88, 89])
+		def agg(sources: dict[int, pl.LazyFrame]) -> pl.LazyFrame:
+			return pl.concat(sources.values())
+
+		agg()
+
+		assert dp.gold.upload.call_args.kwargs["from_resource_ids"] == [88, 89]
+
+	def test_default_source_ids_is_from_silver_ids(
+		self, dp: DataPebbles, ipc_bytes: bytes
+	):
+		"""Without source_ids, from_silver_ids is recorded as lineage."""
+		httpx: MagicMock = cast(Any, dp.silver._client).get_httpx_client()
+		resp = MagicMock()
+		resp.content = ipc_bytes
+		httpx.get.return_value = resp
+
+		dp.silver._latest_version = MagicMock(return_value=1)
+		dp.gold.upload = MagicMock()
+
+		@dp.gold_transform(target_id=3, from_silver_ids=[5, 6])
+		def agg(sources: dict[int, pl.LazyFrame]) -> pl.LazyFrame:
+			return pl.concat(sources.values())
+
+		agg()
+
+		assert dp.gold.upload.call_args.kwargs["from_resource_ids"] == [5, 6]
+
+
+# ---------------------------------------------------------------------------
+# ProjectsLayer
+# ---------------------------------------------------------------------------
+
+
+class TestProjectsLayer:
+	def test_create_project(self, projects: ProjectsLayer):
+		with patch(f"{_SDK_MOD}._project_create") as m:
+			from data_pebbles.client.models.create_project_response import (
+				CreateProjectResponse,
+			)
+
+			m.sync_detailed.return_value = _response(
+				CreateProjectResponse(project_id=42, message="ok")
+			)
+			assert projects.create_project("proj", description="desc") == 42
+			m.sync_detailed.assert_called_once()
+
+	def test_create_project_no_description(self, projects: ProjectsLayer):
+		with patch(f"{_SDK_MOD}._project_create") as m:
+			from data_pebbles.client.models.create_project_response import (
+				CreateProjectResponse,
+			)
+
+			m.sync_detailed.return_value = _response(
+				CreateProjectResponse(project_id=1, message="ok")
+			)
+			assert projects.create_project("proj") == 1
+
+	def test_list_projects(self, projects: ProjectsLayer):
+		with patch(f"{_SDK_MOD}._project_list") as m:
+			m.sync_detailed.return_value = _response(
+				[
+					ProjectResponse(
+						id=1,
+						name="proj",
+						description="d",
+						created_at="2026-01-01T00:00:00Z",
+					),
+				]
+			)
+			result = projects.list_projects()
+			assert len(result) == 1
+			assert result[0].name == "proj"
+
+	def test_list_projects_returns_empty_on_none(self, projects: ProjectsLayer):
+		with patch(f"{_SDK_MOD}._project_list") as m:
+			m.sync_detailed.return_value = _response(None)
+			assert projects.list_projects() == []
+
+	def test_get_project(self, projects: ProjectsLayer):
+		with patch(f"{_SDK_MOD}._project_get") as m:
+			m.sync_detailed.return_value = _response(
+				ProjectResponse(
+					id=1,
+					name="proj",
+					description="d",
+					created_at="2026-01-01T00:00:00Z",
+				)
+			)
+			assert projects.get_project(1).name == "proj"
+
+	def test_update_project(self, projects: ProjectsLayer):
+		with patch(f"{_SDK_MOD}._project_update") as m:
+			m.sync_detailed.return_value = _response(
+				ProjectResponse(
+					id=1,
+					name="new",
+					description="d",
+					created_at="2026-01-01T00:00:00Z",
+				)
+			)
+			assert projects.update_project(1, name="new") == 1
+
+	def test_delete_project(self, projects: ProjectsLayer):
+		with patch(f"{_SDK_MOD}._project_delete") as m:
+			assert projects.delete_project(1) is None
+			m.sync_detailed.assert_called_once()
