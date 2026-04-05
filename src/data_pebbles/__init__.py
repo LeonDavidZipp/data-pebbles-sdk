@@ -5,11 +5,13 @@ from data_pebbles.sdk import (
 	DataPebbles,
 	FileType,
 	GoldLayer,
+	RawLayer,
 	SilverLayer,
 )
 
 __all__ = [
 	"DataPebbles",
+	"RawLayer",
 	"BronzeLayer",
 	"FileType",
 	"SilverLayer",
