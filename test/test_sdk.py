@@ -9,18 +9,16 @@ import polars as pl
 import pytest
 
 from data_pebbles.client.models.create_resource_response import CreateResourceResponse
-from data_pebbles.client.models.gold_lineage_response import GoldLineageResponse
-from data_pebbles.client.models.gold_metadata_response import GoldMetadataResponse
+from data_pebbles.client.models.lineage_response import LineageResponse
 from data_pebbles.client.models.metadata_response import MetadataResponse
 from data_pebbles.client.models.project_response import ProjectResponse
-from data_pebbles.client.models.silver_lineage_response import SilverLineageResponse
-from data_pebbles.client.models.silver_metadata_response import SilverMetadataResponse
 from data_pebbles.client.models.version_response import VersionResponse
 from data_pebbles.sdk import (
 	BronzeLayer,
 	DataPebbles,
 	FileType,
 	GoldLayer,
+	RawLayer,
 	SilverLayer,
 	_read_bronze_bytes,
 )
@@ -94,19 +92,8 @@ def version_response() -> VersionResponse:
 
 
 @pytest.fixture()
-def silver_lineage() -> SilverLineageResponse:
-	return SilverLineageResponse(
-		id=1,
-		resource_id=1,
-		delta_version=1,
-		from_resource_id=1,
-		created_at="2026-01-01T00:00:00Z",
-	)
-
-
-@pytest.fixture()
-def gold_lineage() -> GoldLineageResponse:
-	return GoldLineageResponse(
+def lineage_response() -> LineageResponse:
+	return LineageResponse(
 		id=1,
 		resource_id=1,
 		delta_version=1,
@@ -136,6 +123,11 @@ def mock_httpx(mock_client: MagicMock) -> MagicMock:
 @pytest.fixture()
 def bronze(mock_client: MagicMock) -> BronzeLayer:
 	return BronzeLayer(mock_client)
+
+
+@pytest.fixture()
+def raw(mock_client: MagicMock) -> RawLayer:
+	return RawLayer(mock_client)
 
 
 @pytest.fixture()
@@ -197,6 +189,200 @@ class TestReadBronzeBytes:
 	def test_invalid_data_raises(self):
 		with pytest.raises(ValueError, match="Failed to parse"):
 			_read_bronze_bytes(b"not,valid\x00\xff", ".parquet")
+
+
+# ---------------------------------------------------------------------------
+# RawLayer
+# ---------------------------------------------------------------------------
+
+
+class TestRawLayer:
+	def test_create_resource(self, raw: RawLayer):
+		with patch(f"{_SDK_MOD}._raw_create") as m:
+			m.sync_detailed.return_value = _response(
+				CreateResourceResponse(resource_id=1, message="ok")
+			)
+			result = raw.create_resource("src", project_id=1)
+			assert result == 1
+			m.sync_detailed.assert_called_once()
+
+	def test_list_resources(self, raw: RawLayer):
+		with patch(f"{_SDK_MOD}._raw_list") as m:
+			m.sync_detailed.return_value = _response(
+				[
+					MetadataResponse(
+						id=1,
+						name="a",
+						description=None,
+						project_id=1,
+						created_at="2026-01-01T00:00:00Z",
+					),
+				]
+			)
+			assert len(raw.list_resources()) == 1
+
+	def test_list_resources_returns_empty_on_none(self, raw: RawLayer):
+		with patch(f"{_SDK_MOD}._raw_list") as m:
+			m.sync_detailed.return_value = _response(None)
+			assert raw.list_resources() == []
+
+	def test_get_resource(self, raw: RawLayer):
+		with patch(f"{_SDK_MOD}._raw_get") as m:
+			m.sync_detailed.return_value = _response(
+				MetadataResponse(
+					id=1,
+					name="s",
+					description=None,
+					project_id=1,
+					created_at="2026-01-01T00:00:00Z",
+				)
+			)
+			assert raw.get_resource(1).name == "s"
+
+	def test_update_resource(self, raw: RawLayer):
+		with patch(f"{_SDK_MOD}._raw_update") as m:
+			m.sync_detailed.return_value = _response(
+				MetadataResponse(
+					id=1,
+					name="new",
+					description=None,
+					project_id=1,
+					created_at="2026-01-01T00:00:00Z",
+				)
+			)
+			assert raw.update_resource(1, "new") == 1
+
+	def test_delete_resource(self, raw: RawLayer):
+		with patch(f"{_SDK_MOD}._raw_delete") as m:
+			assert raw.delete_resource(1) is None
+			m.sync_detailed.assert_called_once()
+
+	def test_list_versions(self, raw: RawLayer, version_response: VersionResponse):
+		with patch(f"{_SDK_MOD}._raw_list_versions") as m:
+			m.sync_detailed.return_value = _response([version_response])
+			assert len(raw.list_versions(1)) == 1
+
+	def test_upload_dataframe(self, raw: RawLayer, mock_httpx: MagicMock):
+		resp = MagicMock()
+		resp.json.return_value = {"version": 1}
+		mock_httpx.post.return_value = resp
+
+		df = pl.DataFrame({"x": [1, 2]})
+		result = raw.upload(1, df=df)
+		assert result == {"version": 1}
+		mock_httpx.post.assert_called_once()
+		_, kwargs = mock_httpx.post.call_args
+		file_name, file_bytes, mime = kwargs["files"]["file"]
+		assert file_name == "data"
+		assert mime == "application/octet-stream"
+		# Verify the bytes are valid IPC stream
+		round_tripped = pl.read_ipc_stream(io.BytesIO(file_bytes))
+		assert round_tripped.to_dict(as_series=False) == {"x": [1, 2]}
+
+	def test_upload_lazyframe(self, raw: RawLayer, mock_httpx: MagicMock):
+		resp = MagicMock()
+		resp.json.return_value = {"version": 1}
+		mock_httpx.post.return_value = resp
+
+		lf = pl.DataFrame({"x": [1, 2]}).lazy()
+		result = raw.upload(1, df=lf)
+		assert result == {"version": 1}
+		mock_httpx.post.assert_called_once()
+
+	def test_upload_custom_file_name(self, raw: RawLayer, mock_httpx: MagicMock):
+		resp = MagicMock()
+		resp.json.return_value = {"version": 1}
+		mock_httpx.post.return_value = resp
+
+		df = pl.DataFrame({"x": [1]})
+		raw.upload(1, df=df, file_name="custom_name")
+		_, kwargs = mock_httpx.post.call_args
+		file_name, _, _ = kwargs["files"]["file"]
+		assert file_name == "custom_name"
+
+	def test_upload_with_data(self, raw: RawLayer, mock_httpx: MagicMock):
+		resp = MagicMock()
+		resp.json.return_value = {"version": 1}
+		mock_httpx.post.return_value = resp
+
+		result = raw.upload_file(1, data=b"a,b\n1,2", file_name="data.csv")
+		assert result == {"version": 1}
+		mock_httpx.post.assert_called_once()
+
+	def test_upload_with_file_path(
+		self, raw: RawLayer, mock_httpx: MagicMock, tmp_path: Path
+	):
+		csv_file = tmp_path / "data.csv"
+		csv_file.write_text("a,b\n1,2")
+
+		resp = MagicMock()
+		resp.json.return_value = {"version": 1}
+		mock_httpx.post.return_value = resp
+
+		assert raw.upload_file(1, file_path=csv_file) == {"version": 1}
+
+	def test_upload_rejects_unsupported_extension(self, raw: RawLayer):
+		with pytest.raises(ValueError, match="Unsupported file extension"):
+			raw.upload_file(1, data=b"data", file_name="file.txt")
+
+	def test_upload_requires_file_path_or_data(self, raw: RawLayer):
+		with pytest.raises(ValueError, match="Provide either"):
+			raw.upload_file(1)
+
+	def test_download_specific_version(self, raw: RawLayer, mock_httpx: MagicMock):
+		resp = MagicMock()
+		resp.content = b"raw-bytes"
+		mock_httpx.get.return_value = resp
+
+		assert raw.download(1, version=3) == b"raw-bytes"
+		mock_httpx.get.assert_called_once_with("/raw/1/versions/3")
+
+	def test_download_latest_version(self, raw: RawLayer, mock_httpx: MagicMock):
+		resp = MagicMock()
+		resp.content = b"raw-bytes"
+		mock_httpx.get.return_value = resp
+
+		with patch(f"{_SDK_MOD}._raw_list_versions") as m:
+			m.sync_detailed.return_value = _response(
+				[
+					VersionResponse(
+						id=1,
+						resource_id=1,
+						version=1,
+						status="active",
+						s3_key="d.csv",
+						created_at="2026-01-01T00:00:00Z",
+						updated_at="2026-01-01T00:00:00Z",
+					),
+					VersionResponse(
+						id=2,
+						resource_id=1,
+						version=5,
+						status="active",
+						s3_key="d.csv",
+						created_at="2026-01-01T00:00:00Z",
+						updated_at="2026-01-01T00:00:00Z",
+					),
+				]
+			)
+			assert raw.download(1) == b"raw-bytes"
+			mock_httpx.get.assert_called_once_with("/raw/1/versions/5")
+
+	def test_delete_version(self, raw: RawLayer):
+		with patch(f"{_SDK_MOD}._raw_delete_version") as m:
+			assert raw.delete_version(1, 2) is None
+			m.sync_detailed.assert_called_once()
+
+	def test_activate_version(self, raw: RawLayer):
+		with patch(f"{_SDK_MOD}._raw_activate") as m:
+			assert raw.activate_version(1, 2) is None
+			m.sync_detailed.assert_called_once()
+
+	def test_latest_version_raises_on_empty(self, raw: RawLayer):
+		with patch(f"{_SDK_MOD}._raw_list_versions") as m:
+			m.sync_detailed.return_value = _response([])
+			with pytest.raises(ValueError, match="No versions found"):
+				raw._latest_version(1)
 
 
 # ---------------------------------------------------------------------------
@@ -266,131 +452,80 @@ class TestBronzeLayer:
 			m.sync_detailed.assert_called_once()
 
 	def test_list_versions(
-		self, bronze: BronzeLayer, version_response: VersionResponse
+		self, bronze: BronzeLayer, lineage_response: LineageResponse
 	):
 		with patch(f"{_SDK_MOD}._bronze_list_versions") as m:
-			m.sync_detailed.return_value = _response([version_response])
+			m.sync_detailed.return_value = _response([lineage_response])
 			assert len(bronze.list_versions(1)) == 1
 
-	def test_upload_with_data(self, bronze: BronzeLayer, mock_httpx: MagicMock):
-		resp = MagicMock()
-		resp.json.return_value = {"version": 1}
-		mock_httpx.post.return_value = resp
-
-		result = bronze.upload_file(1, data=b"a,b\n1,2", file_name="data.csv")
-		assert result == {"version": 1}
-		mock_httpx.post.assert_called_once()
-
-	def test_upload_with_file_path(
-		self, bronze: BronzeLayer, mock_httpx: MagicMock, tmp_path: Path
-	):
-		csv_file = tmp_path / "data.csv"
-		csv_file.write_text("a,b\n1,2")
-
-		resp = MagicMock()
-		resp.json.return_value = {"version": 1}
-		mock_httpx.post.return_value = resp
-
-		assert bronze.upload_file(1, file_path=csv_file) == {"version": 1}
-
-	def test_upload_rejects_unsupported_extension(self, bronze: BronzeLayer):
-		with pytest.raises(ValueError, match="Unsupported file extension"):
-			bronze.upload_file(1, data=b"data", file_name="file.txt")
-
-	def test_upload_requires_file_path_or_data(self, bronze: BronzeLayer):
-		with pytest.raises(ValueError, match="Provide either"):
-			bronze.upload_file(1)
-
-	def test_upload_df_dataframe(self, bronze: BronzeLayer, mock_httpx: MagicMock):
+	def test_upload_dataframe(self, bronze: BronzeLayer, mock_httpx: MagicMock):
 		resp = MagicMock()
 		resp.json.return_value = {"version": 1}
 		mock_httpx.post.return_value = resp
 
 		df = pl.DataFrame({"x": [1, 2]})
-		result = bronze.upload(1, df=df)
+		result = bronze.upload(1, df, from_resource_id=10)
 		assert result == {"version": 1}
 		mock_httpx.post.assert_called_once()
 		_, kwargs = mock_httpx.post.call_args
+		assert kwargs["params"] == {"from_resource_id": 10}
 		file_name, file_bytes, mime = kwargs["files"]["file"]
-		assert file_name == "data"
+		assert file_name == "data.parquet"
 		assert mime == "application/octet-stream"
-		# Verify the bytes are valid IPC stream
-		round_tripped = pl.read_ipc_stream(io.BytesIO(file_bytes))
+		# Verify the bytes are valid Parquet
+		round_tripped = pl.read_parquet(io.BytesIO(file_bytes))
 		assert round_tripped.to_dict(as_series=False) == {"x": [1, 2]}
 
-	def test_upload_df_lazyframe(self, bronze: BronzeLayer, mock_httpx: MagicMock):
+	def test_upload_lazyframe(self, bronze: BronzeLayer, mock_httpx: MagicMock):
 		resp = MagicMock()
 		resp.json.return_value = {"version": 1}
 		mock_httpx.post.return_value = resp
 
 		lf = pl.DataFrame({"x": [1, 2]}).lazy()
-		result = bronze.upload(1, df=lf)
+		result = bronze.upload(1, lf, from_resource_id=10)
 		assert result == {"version": 1}
 		mock_httpx.post.assert_called_once()
 
-	def test_upload_df_custom_file_name(
-		self, bronze: BronzeLayer, mock_httpx: MagicMock
-	):
-		resp = MagicMock()
-		resp.json.return_value = {"version": 1}
-		mock_httpx.post.return_value = resp
-
-		df = pl.DataFrame({"x": [1]})
-		bronze.upload(1, df=df, file_name="custom_name")
-		_, kwargs = mock_httpx.post.call_args
-		file_name, _, _ = kwargs["files"]["file"]
-		assert file_name == "custom_name"
-
 	def test_download_specific_version(
-		self, bronze: BronzeLayer, mock_httpx: MagicMock
+		self, bronze: BronzeLayer, mock_httpx: MagicMock, parquet_bytes: bytes
 	):
 		resp = MagicMock()
-		resp.content = b"raw-bytes"
+		resp.content = parquet_bytes
 		mock_httpx.get.return_value = resp
 
-		assert bronze.download(1, version=3) == b"raw-bytes"
+		lf = bronze.download(1, version=3)
+		assert isinstance(lf, pl.LazyFrame)
 		mock_httpx.get.assert_called_once_with("/bronze/1/versions/3")
 
-	def test_download_latest_version(self, bronze: BronzeLayer, mock_httpx: MagicMock):
+	def test_download_latest_version(
+		self, bronze: BronzeLayer, mock_httpx: MagicMock, parquet_bytes: bytes
+	):
 		resp = MagicMock()
-		resp.content = b"raw-bytes"
+		resp.content = parquet_bytes
 		mock_httpx.get.return_value = resp
 
 		with patch(f"{_SDK_MOD}._bronze_list_versions") as m:
 			m.sync_detailed.return_value = _response(
 				[
-					VersionResponse(
+					LineageResponse(
 						id=1,
 						resource_id=1,
-						version=1,
-						status="active",
-						s3_key="d.csv",
+						delta_version=1,
+						from_resource_id=1,
 						created_at="2026-01-01T00:00:00Z",
-						updated_at="2026-01-01T00:00:00Z",
 					),
-					VersionResponse(
+					LineageResponse(
 						id=2,
 						resource_id=1,
-						version=5,
-						status="active",
-						s3_key="d.csv",
+						delta_version=5,
+						from_resource_id=1,
 						created_at="2026-01-01T00:00:00Z",
-						updated_at="2026-01-01T00:00:00Z",
 					),
 				]
 			)
-			assert bronze.download(1) == b"raw-bytes"
+			lf = bronze.download(1)
+			assert isinstance(lf, pl.LazyFrame)
 			mock_httpx.get.assert_called_once_with("/bronze/1/versions/5")
-
-	def test_delete_version(self, bronze: BronzeLayer):
-		with patch(f"{_SDK_MOD}._bronze_delete_version") as m:
-			assert bronze.delete_version(1, 2) is None
-			m.sync_detailed.assert_called_once()
-
-	def test_activate_version(self, bronze: BronzeLayer):
-		with patch(f"{_SDK_MOD}._bronze_activate") as m:
-			assert bronze.activate_version(1, 2) is None
-			m.sync_detailed.assert_called_once()
 
 	def test_latest_version_raises_on_empty(self, bronze: BronzeLayer):
 		with patch(f"{_SDK_MOD}._bronze_list_versions") as m:
@@ -416,7 +551,7 @@ class TestSilverLayer:
 		with patch(f"{_SDK_MOD}._silver_list") as m:
 			m.sync_detailed.return_value = _response(
 				[
-					SilverMetadataResponse(
+					MetadataResponse(
 						id=1,
 						name="s",
 						description=None,
@@ -435,7 +570,7 @@ class TestSilverLayer:
 	def test_get_resource(self, silver: SilverLayer):
 		with patch(f"{_SDK_MOD}._silver_get") as m:
 			m.sync_detailed.return_value = _response(
-				SilverMetadataResponse(
+				MetadataResponse(
 					id=1,
 					name="s",
 					description=None,
@@ -448,7 +583,7 @@ class TestSilverLayer:
 	def test_update_resource(self, silver: SilverLayer):
 		with patch(f"{_SDK_MOD}._silver_update") as m:
 			m.sync_detailed.return_value = _response(
-				SilverMetadataResponse(
+				MetadataResponse(
 					id=1,
 					name="new",
 					description=None,
@@ -464,10 +599,10 @@ class TestSilverLayer:
 			m.sync_detailed.assert_called_once()
 
 	def test_list_versions(
-		self, silver: SilverLayer, silver_lineage: SilverLineageResponse
+		self, silver: SilverLayer, lineage_response: LineageResponse
 	):
 		with patch(f"{_SDK_MOD}._silver_list_versions") as m:
-			m.sync_detailed.return_value = _response([silver_lineage])
+			m.sync_detailed.return_value = _response([lineage_response])
 			assert len(silver.list_versions(1)) == 1
 
 	def test_upload_dataframe(self, silver: SilverLayer, mock_httpx: MagicMock):
@@ -515,14 +650,14 @@ class TestSilverLayer:
 		with patch(f"{_SDK_MOD}._silver_list_versions") as m:
 			m.sync_detailed.return_value = _response(
 				[
-					SilverLineageResponse(
+					LineageResponse(
 						id=1,
 						resource_id=1,
 						delta_version=1,
 						from_resource_id=1,
 						created_at="2026-01-01T00:00:00Z",
 					),
-					SilverLineageResponse(
+					LineageResponse(
 						id=2,
 						resource_id=1,
 						delta_version=3,
@@ -559,7 +694,7 @@ class TestGoldLayer:
 		with patch(f"{_SDK_MOD}._gold_list") as m:
 			m.sync_detailed.return_value = _response(
 				[
-					GoldMetadataResponse(
+					MetadataResponse(
 						id=1,
 						name="g",
 						description=None,
@@ -578,7 +713,7 @@ class TestGoldLayer:
 	def test_get_resource(self, gold: GoldLayer):
 		with patch(f"{_SDK_MOD}._gold_get") as m:
 			m.sync_detailed.return_value = _response(
-				GoldMetadataResponse(
+				MetadataResponse(
 					id=1,
 					name="g",
 					description=None,
@@ -591,7 +726,7 @@ class TestGoldLayer:
 	def test_update_resource(self, gold: GoldLayer):
 		with patch(f"{_SDK_MOD}._gold_update") as m:
 			m.sync_detailed.return_value = _response(
-				GoldMetadataResponse(
+				MetadataResponse(
 					id=1,
 					name="new",
 					description=None,
@@ -606,9 +741,9 @@ class TestGoldLayer:
 			assert gold.delete_resource(1) is None
 			m.sync_detailed.assert_called_once()
 
-	def test_list_versions(self, gold: GoldLayer, gold_lineage: GoldLineageResponse):
+	def test_list_versions(self, gold: GoldLayer, lineage_response: LineageResponse):
 		with patch(f"{_SDK_MOD}._gold_list_versions") as m:
-			m.sync_detailed.return_value = _response([gold_lineage])
+			m.sync_detailed.return_value = _response([lineage_response])
 			assert len(gold.list_versions(1)) == 1
 
 	def test_upload_dataframe(self, gold: GoldLayer, mock_httpx: MagicMock):
@@ -651,14 +786,14 @@ class TestGoldLayer:
 		with patch(f"{_SDK_MOD}._gold_list_versions") as m:
 			m.sync_detailed.return_value = _response(
 				[
-					GoldLineageResponse(
+					LineageResponse(
 						id=1,
 						resource_id=1,
 						delta_version=1,
 						from_resource_id=1,
 						created_at="2026-01-01T00:00:00Z",
 					),
-					GoldLineageResponse(
+					LineageResponse(
 						id=2,
 						resource_id=1,
 						delta_version=7,
@@ -691,6 +826,7 @@ class TestDataPebbles:
 				token="tok",
 				raise_on_unexpected_status=True,
 			)
+			assert isinstance(dp.raw, RawLayer)
 			assert isinstance(dp.bronze, BronzeLayer)
 			assert isinstance(dp.silver, SilverLayer)
 			assert isinstance(dp.gold, GoldLayer)
@@ -719,22 +855,11 @@ class TestDataPebbles:
 
 
 class TestSilverTransform:
-	def test_basic_flow(self, dp: DataPebbles, csv_bytes: bytes):
+	def test_basic_flow(self, dp: DataPebbles):
 		dp.bronze._latest_version = MagicMock(return_value=1)
-		dp.bronze.list_versions = MagicMock(
-			return_value=[
-				VersionResponse(
-					id=1,
-					resource_id=1,
-					version=1,
-					status="active",
-					s3_key="data.csv",
-					created_at="2026-01-01T00:00:00Z",
-					updated_at="2026-01-01T00:00:00Z",
-				)
-			]
+		dp.bronze.download = MagicMock(
+			return_value=pl.DataFrame({"a": [1, 3], "b": [2, 4]}).lazy()
 		)
-		dp.bronze.download = MagicMock(return_value=csv_bytes)
 		dp.silver.upload = MagicMock()
 
 		@dp.silver_transform(target_id=2, from_bronze_id=1)
@@ -750,8 +875,57 @@ class TestSilverTransform:
 		assert call_args.args[0] == 2
 		assert call_args.kwargs["from_resource_id"] == 1
 
+	def test_specific_version(self, dp: DataPebbles):
+		dp.bronze.download = MagicMock(return_value=pl.DataFrame({"a": [1]}).lazy())
+		dp.silver.upload = MagicMock()
+
+		@dp.silver_transform(target_id=2, from_bronze_id=1)
+		def clean(lf: pl.LazyFrame) -> pl.LazyFrame:
+			return lf
+
+		clean(version=5)
+		dp.bronze.download.assert_called_once_with(1, version=5)
+
+
+# ---------------------------------------------------------------------------
+# bronze_transform decorator
+# ---------------------------------------------------------------------------
+
+
+class TestBronzeTransform:
+	def test_basic_flow(self, dp: DataPebbles, csv_bytes: bytes):
+		dp.raw._latest_version = MagicMock(return_value=1)
+		dp.raw.list_versions = MagicMock(
+			return_value=[
+				VersionResponse(
+					id=1,
+					resource_id=1,
+					version=1,
+					status="active",
+					s3_key="data.csv",
+					created_at="2026-01-01T00:00:00Z",
+					updated_at="2026-01-01T00:00:00Z",
+				)
+			]
+		)
+		dp.raw.download = MagicMock(return_value=csv_bytes)
+		dp.bronze.upload = MagicMock()
+
+		@dp.bronze_transform(target_id=2, from_raw_id=1)
+		def parse(lf: pl.LazyFrame) -> pl.LazyFrame:
+			return lf.filter(pl.col("a") > 1)
+
+		parse()
+
+		dp.raw._latest_version.assert_called_once_with(1)
+		dp.raw.download.assert_called_once_with(1, version=1)
+		dp.bronze.upload.assert_called_once()
+		call_args = dp.bronze.upload.call_args
+		assert call_args.args[0] == 2
+		assert call_args.kwargs["from_resource_id"] == 1
+
 	def test_specific_version(self, dp: DataPebbles, csv_bytes: bytes):
-		dp.bronze.list_versions = MagicMock(
+		dp.raw.list_versions = MagicMock(
 			return_value=[
 				VersionResponse(
 					id=1,
@@ -764,15 +938,15 @@ class TestSilverTransform:
 				)
 			]
 		)
-		dp.bronze.download = MagicMock(return_value=csv_bytes)
-		dp.silver.upload = MagicMock()
+		dp.raw.download = MagicMock(return_value=csv_bytes)
+		dp.bronze.upload = MagicMock()
 
-		@dp.silver_transform(target_id=2, from_bronze_id=1)
-		def clean(lf: pl.LazyFrame) -> pl.LazyFrame:
+		@dp.bronze_transform(target_id=2, from_raw_id=1)
+		def parse(lf: pl.LazyFrame) -> pl.LazyFrame:
 			return lf
 
-		clean(version=5)
-		dp.bronze.download.assert_called_once_with(1, version=5)
+		parse(version=5)
+		dp.raw.download.assert_called_once_with(1, version=5)
 
 	def test_csv_separator(
 		self,
@@ -780,8 +954,8 @@ class TestSilverTransform:
 		csv_bytes_semicolon: bytes,
 		expected_dict: dict[str, list[int]],
 	):
-		dp.bronze._latest_version = MagicMock(return_value=1)
-		dp.bronze.list_versions = MagicMock(
+		dp.raw._latest_version = MagicMock(return_value=1)
+		dp.raw.list_versions = MagicMock(
 			return_value=[
 				VersionResponse(
 					id=1,
@@ -794,18 +968,18 @@ class TestSilverTransform:
 				)
 			]
 		)
-		dp.bronze.download = MagicMock(return_value=csv_bytes_semicolon)
-		dp.silver.upload = MagicMock()
+		dp.raw.download = MagicMock(return_value=csv_bytes_semicolon)
+		dp.bronze.upload = MagicMock()
 
-		@dp.silver_transform(
-			target_id=2, from_bronze_id=1, read_options={"separator": ";"}
+		@dp.bronze_transform(
+			target_id=2, from_raw_id=1, read_options={"separator": ";"}
 		)
-		def clean(lf: pl.LazyFrame) -> pl.LazyFrame:
+		def parse(lf: pl.LazyFrame) -> pl.LazyFrame:
 			return lf
 
-		clean()
+		parse()
 
-		uploaded = dp.silver.upload.call_args.args[1]
+		uploaded = dp.bronze.upload.call_args.args[1]
 		assert isinstance(uploaded, pl.LazyFrame)
 		assert uploaded.collect().to_dict(as_series=False) == expected_dict
 
@@ -816,8 +990,8 @@ class TestSilverTransform:
 		expected_dict: dict[str, list[int]],
 	):
 		"""file_type overrides the extension from s3_key."""
-		dp.bronze._latest_version = MagicMock(return_value=1)
-		dp.bronze.list_versions = MagicMock(
+		dp.raw._latest_version = MagicMock(return_value=1)
+		dp.raw.list_versions = MagicMock(
 			return_value=[
 				VersionResponse(
 					id=1,
@@ -830,20 +1004,20 @@ class TestSilverTransform:
 				)
 			]
 		)
-		dp.bronze.download = MagicMock(return_value=csv_bytes)
-		dp.silver.upload = MagicMock()
+		dp.raw.download = MagicMock(return_value=csv_bytes)
+		dp.bronze.upload = MagicMock()
 
-		@dp.silver_transform(
+		@dp.bronze_transform(
 			target_id=2,
-			from_bronze_id=1,
+			from_raw_id=1,
 			file_type=FileType.CSV,
 		)
-		def clean(lf: pl.LazyFrame) -> pl.LazyFrame:
+		def parse(lf: pl.LazyFrame) -> pl.LazyFrame:
 			return lf
 
-		clean()
+		parse()
 
-		uploaded = dp.silver.upload.call_args.args[1]
+		uploaded = dp.bronze.upload.call_args.args[1]
 		assert isinstance(uploaded, pl.LazyFrame)
 		assert uploaded.collect().to_dict(as_series=False) == expected_dict
 
@@ -853,8 +1027,8 @@ class TestSilverTransform:
 		csv_bytes: bytes,
 	):
 		"""file_type also accepts a plain string."""
-		dp.bronze._latest_version = MagicMock(return_value=1)
-		dp.bronze.list_versions = MagicMock(
+		dp.raw._latest_version = MagicMock(return_value=1)
+		dp.raw.list_versions = MagicMock(
 			return_value=[
 				VersionResponse(
 					id=1,
@@ -867,19 +1041,19 @@ class TestSilverTransform:
 				)
 			]
 		)
-		dp.bronze.download = MagicMock(return_value=csv_bytes)
-		dp.silver.upload = MagicMock()
+		dp.raw.download = MagicMock(return_value=csv_bytes)
+		dp.bronze.upload = MagicMock()
 
-		@dp.silver_transform(target_id=2, from_bronze_id=1, file_type=".csv")
-		def clean(lf: pl.LazyFrame) -> pl.LazyFrame:
+		@dp.bronze_transform(target_id=2, from_raw_id=1, file_type=".csv")
+		def parse(lf: pl.LazyFrame) -> pl.LazyFrame:
 			return lf
 
-		clean()
-		dp.silver.upload.assert_called_once()
+		parse()
+		dp.bronze.upload.assert_called_once()
 
 	def test_parquet_input(self, dp: DataPebbles, parquet_bytes: bytes):
-		dp.bronze._latest_version = MagicMock(return_value=1)
-		dp.bronze.list_versions = MagicMock(
+		dp.raw._latest_version = MagicMock(return_value=1)
+		dp.raw.list_versions = MagicMock(
 			return_value=[
 				VersionResponse(
 					id=1,
@@ -892,15 +1066,76 @@ class TestSilverTransform:
 				)
 			]
 		)
-		dp.bronze.download = MagicMock(return_value=parquet_bytes)
-		dp.silver.upload = MagicMock()
+		dp.raw.download = MagicMock(return_value=parquet_bytes)
+		dp.bronze.upload = MagicMock()
 
-		@dp.silver_transform(target_id=2, from_bronze_id=1)
-		def clean(lf: pl.LazyFrame) -> pl.LazyFrame:
+		@dp.bronze_transform(target_id=2, from_raw_id=1)
+		def parse(lf: pl.LazyFrame) -> pl.LazyFrame:
 			return lf
 
-		clean()
-		dp.silver.upload.assert_called_once()
+		parse()
+		dp.bronze.upload.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# bronze_transform — source_id override
+# ---------------------------------------------------------------------------
+
+
+class TestBronzeTransformSourceId:
+	def test_source_id_override(self, dp: DataPebbles, csv_bytes: bytes):
+		"""When source_id is given, it replaces from_raw_id in lineage."""
+		dp.raw._latest_version = MagicMock(return_value=1)
+		dp.raw.list_versions = MagicMock(
+			return_value=[
+				VersionResponse(
+					id=1,
+					resource_id=1,
+					version=1,
+					status="active",
+					s3_key="data.csv",
+					created_at="2026-01-01T00:00:00Z",
+					updated_at="2026-01-01T00:00:00Z",
+				)
+			]
+		)
+		dp.raw.download = MagicMock(return_value=csv_bytes)
+		dp.bronze.upload = MagicMock()
+
+		@dp.bronze_transform(target_id=2, from_raw_id=1, source_id=99)
+		def parse(lf: pl.LazyFrame) -> pl.LazyFrame:
+			return lf
+
+		parse()
+
+		assert dp.bronze.upload.call_args.kwargs["from_resource_id"] == 99
+
+	def test_default_source_id_is_from_raw_id(self, dp: DataPebbles, csv_bytes: bytes):
+		"""Without source_id, from_raw_id is recorded as lineage."""
+		dp.raw._latest_version = MagicMock(return_value=1)
+		dp.raw.list_versions = MagicMock(
+			return_value=[
+				VersionResponse(
+					id=1,
+					resource_id=1,
+					version=1,
+					status="active",
+					s3_key="data.csv",
+					created_at="2026-01-01T00:00:00Z",
+					updated_at="2026-01-01T00:00:00Z",
+				)
+			]
+		)
+		dp.raw.download = MagicMock(return_value=csv_bytes)
+		dp.bronze.upload = MagicMock()
+
+		@dp.bronze_transform(target_id=2, from_raw_id=7)
+		def parse(lf: pl.LazyFrame) -> pl.LazyFrame:
+			return lf
+
+		parse()
+
+		assert dp.bronze.upload.call_args.kwargs["from_resource_id"] == 7
 
 
 # ---------------------------------------------------------------------------
@@ -982,23 +1217,12 @@ class TestFileType:
 
 
 class TestSilverTransformSourceId:
-	def test_source_id_override(self, dp: DataPebbles, csv_bytes: bytes):
+	def test_source_id_override(self, dp: DataPebbles):
 		"""When source_id is given, it replaces from_bronze_id in lineage."""
 		dp.bronze._latest_version = MagicMock(return_value=1)
-		dp.bronze.list_versions = MagicMock(
-			return_value=[
-				VersionResponse(
-					id=1,
-					resource_id=1,
-					version=1,
-					status="active",
-					s3_key="data.csv",
-					created_at="2026-01-01T00:00:00Z",
-					updated_at="2026-01-01T00:00:00Z",
-				)
-			]
+		dp.bronze.download = MagicMock(
+			return_value=pl.DataFrame({"a": [1, 3], "b": [2, 4]}).lazy()
 		)
-		dp.bronze.download = MagicMock(return_value=csv_bytes)
 		dp.silver.upload = MagicMock()
 
 		@dp.silver_transform(target_id=2, from_bronze_id=1, source_id=99)
@@ -1009,25 +1233,12 @@ class TestSilverTransformSourceId:
 
 		assert dp.silver.upload.call_args.kwargs["from_resource_id"] == 99
 
-	def test_default_source_id_is_from_bronze_id(
-		self, dp: DataPebbles, csv_bytes: bytes
-	):
+	def test_default_source_id_is_from_bronze_id(self, dp: DataPebbles):
 		"""Without source_id, from_bronze_id is recorded as lineage."""
 		dp.bronze._latest_version = MagicMock(return_value=1)
-		dp.bronze.list_versions = MagicMock(
-			return_value=[
-				VersionResponse(
-					id=1,
-					resource_id=1,
-					version=1,
-					status="active",
-					s3_key="data.csv",
-					created_at="2026-01-01T00:00:00Z",
-					updated_at="2026-01-01T00:00:00Z",
-				)
-			]
+		dp.bronze.download = MagicMock(
+			return_value=pl.DataFrame({"a": [1, 3], "b": [2, 4]}).lazy()
 		)
-		dp.bronze.download = MagicMock(return_value=csv_bytes)
 		dp.silver.upload = MagicMock()
 
 		@dp.silver_transform(target_id=2, from_bronze_id=7)
